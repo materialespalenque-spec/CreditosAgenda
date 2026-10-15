@@ -110,6 +110,9 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig); 
 
 /* ============ ESTADO ============ */
+ 
+
+/* ============ ESTADO ============ */
 let uid = null, email = '', unsubs = [], tab = 'inicio', filtroAmbito = 'todo', renderPendiente = false;
 const S = {tipos:[], cuentas:[], cargos:[], pagos:[], config:{}};
 const col = n => db.collection('usuarios').doc(uid).collection(n);
