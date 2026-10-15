@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1f5fbf">
+<title>Agenda de Créditos</title>
+<style>
+:root{--bg:#f4f5f7;--card:#fff;--text:#1b1f24;--muted:#6b7280;--line:#e3e6ea;--accent:#1f5fbf;--accent-soft:#e7effb;
+  --red:#d64545;--orange:#e07b14;--yellow:#c99a10;--green:#2e9e5b;--gray:#9aa0a6}
+@media (prefers-color-scheme:dark){:root{--bg:#111316;--card:#1b1e23;--text:#e8eaed;--muted:#9aa0a6;--line:#2b2f35;--accent:#5b9bff;--accent-soft:#1d2a3d}}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);
+  font-variant-numeric:tabular-nums;padding-bottom:84px;-webkit-tap-highlight-color:transparent}
+header{padding:16px 16px 8px;max-width:720px;margin:0 auto;display:flex;justify-content:space-between;align-items:baseline}
+h1{font-size:20px;margin:0}h2{font-size:18px;margin:0 0 8px}h3{font-size:15px;margin:18px 0 8px}
+main{padding:0 16px;max-width:720px;margin:0 auto}
+.muted{color:var(--muted)}.small{font-size:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
+.card.soft{background:var(--accent-soft);border:0}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px}
+.stat .lbl{font-size:12px;color:var(--muted)}.stat .val{font-size:17px;font-weight:700;margin-top:2px}
+.stat.red .val{color:var(--red)}
+.bar-row{display:grid;grid-template-columns:96px 1fr 92px;gap:8px;align-items:center;font-size:13px;margin:6px 0}
+.bar{height:10px;background:var(--line);border-radius:5px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent);border-radius:5px}
+.bar i.red{background:var(--red)}.bar i.warn{background:var(--orange)}
+.bar-row .amt{text-align:right;font-weight:600}
+.item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.item:last-child{border-bottom:0}
+.item .grow{flex:1;min-width:0}.item .t{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.item .s{font-size:12px;margin-top:2px}.item .r{text-align:right}
+.amt{font-weight:700}
+.dot{width:10px;height:10px;border-radius:50%;flex:none}
+.dot.red{background:var(--red)}.dot.orange{background:var(--orange)}.dot.yellow{background:var(--yellow)}.dot.gray{background:var(--gray)}
+.red-t{color:var(--red)}.orange-t{color:var(--orange)}.yellow-t{color:var(--yellow)}.gray-t{color:var(--muted)}
+.chips{display:flex;gap:6px;margin-bottom:12px}
+.chip{border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:16px;padding:6px 12px;font-size:13px}
+.chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.tag{font-size:11px;padding:2px 6px;border-radius:6px;background:var(--accent-soft);color:var(--accent);margin-left:6px;font-weight:500}
+.btn{background:var(--accent);color:#fff;border:0;border-radius:10px;padding:11px 16px;font-size:15px;font-weight:600;cursor:pointer}
+.btn.sec{background:var(--accent-soft);color:var(--accent)}
+.btn.full{width:100%}
+.mini{background:var(--accent);color:#fff;border:0;border-radius:8px;padding:5px 10px;font-size:13px;margin-top:4px;cursor:pointer}
+.mini.sec{background:var(--accent-soft);color:var(--accent)}
+.link{background:none;border:0;color:var(--accent);font-size:13px;padding:4px 0;cursor:pointer}
+.link.danger{color:var(--red)}
+.row{display:flex;gap:8px;margin-top:16px}.row .btn{flex:1}
+nav.tabs{position:fixed;bottom:0;left:0;right:0;display:flex;background:var(--card);border-top:1px solid var(--line);
+  padding-bottom:env(safe-area-inset-bottom);z-index:5}
+nav.tabs button{flex:1;padding:14px 0;background:none;border:0;color:var(--muted);font-size:13px;cursor:pointer}
+nav.tabs button.on{color:var(--accent);font-weight:700}
+.fab{position:fixed;right:18px;bottom:78px;width:56px;height:56px;border-radius:50%;background:var(--accent);color:#fff;
+  font-size:30px;line-height:56px;border:0;box-shadow:0 4px 14px rgba(0,0,0,.25);z-index:6;cursor:pointer}
+.sheet-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center;z-index:10}
+.sheet{background:var(--card);width:100%;max-width:720px;max-height:92vh;overflow:auto;border-radius:16px 16px 0 0;padding:18px 16px 28px}
+.sheet-h{display:flex;justify-content:space-between;align-items:center}
+.x{background:none;border:0;color:var(--muted);font-size:20px;cursor:pointer}
+label{display:block;font-size:13px;color:var(--muted);margin:12px 0 4px}
+input,select{width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--text);font-size:16px}
+input[type=checkbox]{width:auto;margin-right:8px}
+.check{display:flex;align-items:center;color:var(--text);font-size:15px;margin-top:14px}
+.empty{text-align:center;padding:40px 16px;color:var(--muted)}
+.empty .btn{margin-top:14px}
+.login{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:80vh;text-align:center;padding:16px}
+.progress{height:8px;background:var(--line);border-radius:4px;overflow:hidden;margin:8px 0 4px}
+.progress i{display:block;height:100%;background:var(--green)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+</style>
+</head>
+<body>
+
+<div id="login" class="login" style="display:none">
+  <h1>Agenda de Créditos</h1>
+  <p class="muted">Control de facturas, tarjetas, recibos y deudas.</p>
+  <button class="btn" onclick="entrar()">Entrar con Google</button>
+</div>
+
+<div id="app" style="display:none">
+  <header><h1 id="titulo">Inicio</h1><span class="muted small" id="fechaHoy"></span></header>
+  <main id="main"></main>
+  <button id="fab" class="fab" onclick="formCargo()">+</button>
+  <nav class="tabs">
+    <button data-tab="inicio" onclick="irA('inicio')">Inicio</button>
+    <button data-tab="cuentas" onclick="irA('cuentas')">Cuentas</button>
+    <button data-tab="deudas" onclick="irA('deudas')">Deudas</button>
+    <button data-tab="ajustes" onclick="irA('ajustes')">Ajustes</button>
+  </nav>
+</div>
+
+<div id="sheetBg" class="sheet-bg" onclick="if(event.target===this)closeSheet()"><div id="sheet" class="sheet"></div></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+/* ============ CONFIGURACIÓN ============ */
+// Pega aquí la configuración de tu proyecto (Firebase Console → Configuración del proyecto → Tus apps → Web)
+const firebaseConfig = {
+  apiKey: "AIzaSyBYTczMWjKRl5qxAkq9riMhG-wr4XbrmnA",
+  authDomain: "creditosmp.firebaseapp.com",
+  projectId: "creditosmp",
+  storageBucket: "creditosmp.firebasestorage.app",
+  messagingSenderId: "275450861884",
+  appId: "1:275450861884:web:00b38ecff8970d573ba639"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig); 
+
+/* ============ ESTADO ============ */
+let uid = null, email = '', unsubs = [], tab = 'inicio', filtroAmbito = 'todo', renderPendiente = false;
+const S = {tipos:[], cuentas:[], cargos:[], pagos:[], config:{}};
+const col = n => db.collection('usuarios').doc(uid).collection(n);
+const ts = () => firebase.firestore.FieldValue.serverTimestamp();
+
+const TIPOS_BASE = [
+  {nombre:'Proveedor', comportamiento:'factura', orden:1},
+  {nombre:'Tarjeta', comportamiento:'tarjeta', orden:2},
+  {nombre:'Servicio', comportamiento:'recurrente', orden:3},
+  {nombre:'Préstamo', comportamiento:'prestamo', orden:4}
+];
+const COMP = {
+  factura:'Facturas con folio y plazo',
+  tarjeta:'Fecha de corte y fecha límite',
+  recurrente:'Recibo periódico (luz, internet…)',
+  prestamo:'Deuda a largo plazo con abonos'
+};
+
+/* ============ UTILIDADES ============ */
+const MESES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+function fmtISO(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
+function parseISO(s){const [y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d)}
+function hoy(){return fmtISO(new Date())}
+function addDays(s,n){const d=parseISO(s);d.setDate(d.getDate()+n);return fmtISO(d)}
+function addMonths(s,n,dia){
+  const d=parseISO(s), target=dia||d.getDate(), y=d.getFullYear(), m=d.getMonth()+n;
+  const ultimo=new Date(y,m+1,0).getDate();
+  return fmtISO(new Date(y,m,Math.min(target,ultimo)));
+}
+function proximoDia(dia,desde){ // próxima fecha (>= desde) con ese día del mes
+  desde=desde||hoy(); const d=parseISO(desde); let y=d.getFullYear(), m=d.getMonth();
+  let c=new Date(y,m,Math.min(dia,new Date(y,m+1,0).getDate()));
+  if(c<d){m++;c=new Date(y,m,Math.min(dia,new Date(y,m+1,0).getDate()))}
+  return fmtISO(c);
+}
+function diasHasta(s){return Math.round((parseISO(s)-parseISO(hoy()))/86400000)}
+function fCorta(s){const d=parseISO(s);return `${d.getDate()} ${MESES[d.getMonth()]}`}
+function fLarga(s){const d=parseISO(s);return `${d.getDate()} ${MESES[d.getMonth()]} ${d.getFullYear()}`}
+function relativo(d){
+  if(d<0) return `Vencido hace ${-d} día${d===-1?'':'s'}`;
+  if(d===0) return 'Vence hoy';
+  if(d===1) return 'Vence mañana';
+  return `En ${d} días`;
+}
+function urgencia(d){return d<0?'red':d<=3?'orange':d<=7?'yellow':'gray'}
+const money = n => '$'+Number(n||0).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2});
+const money0 = n => '$'+Math.round(Number(n||0)).toLocaleString('es-MX');
+const round2 = n => Math.round(n*100)/100;
+const esc = s => String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const $ = id => document.getElementById(id);
+const val = id => ($(id)?$(id).value:'');
+const numv = id => {const n=parseFloat(String(val(id)).replace(/,/g,''));return isNaN(n)?null:n};
+const intv = id => {const n=parseInt(val(id),10);return isNaN(n)?null:n};
+const alerta = m => alert(m);
+const commit = b => b.commit().catch(e=>alerta('Error al guardar: '+e.message));
+function num(id,lbl,v,extra=''){return `<label>${lbl}</label><input id="${id}" type="number" inputmode="decimal" step="any" value="${v??''}" ${extra}>`}
+
+const cuentaById = id => S.cuentas.find(c=>c.id===id);
+const tipoById = id => S.tipos.find(t=>t.id===id);
+const tiposOrden = () => [...S.tipos].sort((a,b)=>(a.orden||0)-(b.orden||0));
+const pasaFiltro = c => c && (filtroAmbito==='todo' || c.ambito===filtroAmbito);
+const byVenc = (a,b) => a.fechaVencimiento.localeCompare(b.fechaVencimiento);
+function pendientes(){return S.cargos.filter(c=>c.estado!=='pagado' && pasaFiltro(cuentaById(c.cuentaId))).sort(byVenc)}
+function saldoCuenta(id){return round2(S.cargos.filter(c=>c.cuentaId===id&&c.estado!=='pagado').reduce((a,c)=>a+(c.saldo||0),0))}
+function abonadoPrestamo(c){return round2(S.pagos.filter(p=>p.cuentaId===c.id).reduce((a,p)=>a+(p.monto||0),0))}
+function saldoPrestamo(c){return Math.max(0,round2((c.montoOriginal||0)-abonadoPrestamo(c)))}
+function nuevoCargo(cuentaId,folio,monto,emision,venc){
+  return {cuentaId,folio:folio||'',montoOriginal:monto,saldo:monto,fechaEmision:emision,fechaVencimiento:venc,estado:'pendiente',creado:ts()};
+}
+
+/* ============ AUTH Y DATOS ============ */
+function entrar(){
+  const p=new firebase.auth.GoogleAuthProvider();
+  auth.signInWithPopup(p).catch(e=>{
+    if(e.code==='auth/popup-blocked'||e.code==='auth/operation-not-supported-in-this-environment') auth.signInWithRedirect(p);
+    else alerta(e.message);
+  });
+}
+auth.onAuthStateChanged(async u=>{
+  unsubs.forEach(f=>f()); unsubs=[];
+  if(!u){uid=null;$('login').style.display='flex';$('app').style.display='none';return}
+  uid=u.uid; email=u.email||'';
+  $('login').style.display='none'; $('app').style.display='block';
+  await asegurarBase(); escuchar();
+});
+async function asegurarBase(){
+  try{
+    const s=await col('tipos').limit(1).get({source:'server'});
+    if(s.empty){
+      const b=db.batch();
+      TIPOS_BASE.forEach(t=>b.set(col('tipos').doc(),t));
+      b.set(col('config').doc('general'),{avisos:[7,3,0],horaAvisos:'09:00',horaResumen:'08:00'},{merge:true});
+      await b.commit();
+    }
+  }catch(e){console.warn('No se pudo verificar la base (¿sin conexión?)',e)}
+}
+function escuchar(){
+  ['tipos','cuentas','cargos','pagos'].forEach(n=>{
+    unsubs.push(col(n).onSnapshot(s=>{S[n]=s.docs.map(d=>({id:d.id,...d.data()}));render()},e=>console.error(n,e)));
+  });
+  unsubs.push(col('config').doc('general').onSnapshot(d=>{S.config=d.data()||{};render()},e=>console.error('config',e)));
+}
+
+/* ============ RENDER ============ */
+const TITULOS = {inicio:'Inicio',cuentas:'Cuentas',deudas:'Deudas',ajustes:'Ajustes'};
+function irA(t){tab=t;window.scrollTo(0,0);render(true)}
+function render(forzar){
+  if(!uid) return;
+  const m=$('main'), ae=document.activeElement;
+  if(!forzar && ae && m.contains(ae) && /INPUT|SELECT|TEXTAREA/.test(ae.tagName)){renderPendiente=true;return}
+  renderPendiente=false;
+  $('titulo').textContent=TITULOS[tab];
+  $('fechaHoy').textContent=fLarga(hoy());
+  document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.toggle('on',b.dataset.tab===tab));
+  $('fab').style.display=(tab==='inicio'||tab==='cuentas')?'block':'none';
+  m.innerHTML = tab==='inicio'?vInicio() : tab==='cuentas'?vCuentas() : tab==='deudas'?vDeudas() : vAjustes();
+}
+document.addEventListener('focusout',()=>setTimeout(()=>{if(renderPendiente)render()},50));
+
+function chips(){
+  return `<div class="chips">${[['todo','Todo'],['negocio','Negocio'],['personal','Personal']]
+    .map(([k,l])=>`<button class="chip ${filtroAmbito===k?'on':''}" onclick="filtroAmbito='${k}';render(true)">${l}</button>`).join('')}</div>`;
+}
+
+/* ---------- INICIO ---------- */
+function vInicio(){
+  if(!S.cuentas.length) return `<div class="empty">Empieza dando de alta tus proveedores, tarjetas y servicios.<br>
+    <button class="btn" onclick="formCuenta()">+ Nueva cuenta</button></div>`;
+  const p=pendientes();
+  let venc=0,s7=0,s30=0; const bk=[0,0,0,0,0];
+  p.forEach(c=>{
+    const d=diasHasta(c.fechaVencimiento), s=c.saldo||0;
+    if(d<0){venc+=s;bk[0]+=s}
+    else{ if(d<7)s7+=s; if(d<30)s30+=s; const w=Math.floor(d/7); if(w<4)bk[w+1]+=s }
+  });
+  const max=Math.max(...bk,1);
+  const etiquetas=['Vencido',...[0,1,2,3].map(w=>`${fCorta(addDays(hoy(),w*7))}–${fCorta(addDays(hoy(),w*7+6))}`)];
+  const barras=bk.map((v,i)=>`<div class="bar-row"><span class="${i===0?'red-t':''}">${etiquetas[i]}</span>
+    <div class="bar"><i class="${i===0?'red':i===1?'warn':''}" style="width:${v/max*100}%"></i></div>
+    <span class="amt">${money0(v)}</span></div>`).join('');
+  const anio=hoy().slice(0,4);
+  const recargos=S.pagos.filter(x=>(x.fecha||'').startsWith(anio)&&pasaFiltro(cuentaById(x.cuentaId))).reduce((a,x)=>a+(x.recargos||0),0);
+  const proximos=p.filter(c=>diasHasta(c.fechaVencimiento)<30), despues=p.length-proximos.length;
+  return chips()+`
+    <div class="stats">
+      <div class="stat ${venc>0?'red':''}"><div class="lbl">Vencido</div><div class="val">${money0(venc)}</div></div>
+      <div class="stat"><div class="lbl">Próx. 7 días</div><div class="val">${money0(s7)}</div></div>
+      <div class="stat"><div class="lbl">Próx. 30 días</div><div class="val">${money0(s30)}</div></div>
+    </div>
+    <div class="card"><h3 style="margin-top:0">Flujo por semana</h3>${barras}</div>
+    <div class="card"><h3 style="margin-top:0">Próximos pagos</h3>
+      ${proximos.length?proximos.map(itemCargo).join(''):'<p class="muted">Nada por pagar en los próximos 30 días.</p>'}
+      ${despues?`<p class="muted small">+ ${despues} pago${despues>1?'s':''} más adelante</p>`:''}
+    </div>
+    ${recargos>0?`<div class="card"><span class="muted">Intereses y recargos pagados en ${anio}:</span> <b class="red-t">${money(recargos)}</b></div>`:''}`;
+}
+function itemCargo(c,conBorrar){
+  const cta=cuentaById(c.cuentaId), d=diasHasta(c.fechaVencimiento), u=urgencia(d);
+  return `<div class="item" onclick="detalleCuenta('${c.cuentaId}')" style="cursor:pointer">
+    <span class="dot ${u}"></span>
+    <div class="grow"><div class="t">${esc(cta?cta.nombre:'?')}${c.folio?` <span class="muted" style="font-weight:400">· ${esc(c.folio)}</span>`:''}</div>
+      <div class="s ${u}-t">${relativo(d)} · ${fLarga(c.fechaVencimiento)}${c.estado==='parcial'?' · parcial':''}</div></div>
+    <div class="r"><div class="amt">${money(c.saldo)}</div>
+      <button class="mini" onclick="event.stopPropagation();formPago('${c.id}')">Pagar</button>
+      ${conBorrar?`<br><button class="link danger" onclick="event.stopPropagation();eliminarCargo('${c.id}')">Eliminar</button>`:''}</div>
+  </div>`;
+}
+
+/* ---------- CUENTAS ---------- */
+function vCuentas(){
+  const ctas=S.cuentas.filter(c=>c.comportamiento!=='prestamo'&&c.activa!==false&&pasaFiltro(c));
+  if(!ctas.length) return chips()+`<div class="empty">Aún no hay cuentas aquí.<br><button class="btn" onclick="formCuenta()">+ Nueva cuenta</button></div>`;
+  let h=chips();
+  tiposOrden().filter(t=>t.comportamiento!=='prestamo').forEach(t=>{
+    const lista=ctas.filter(c=>c.tipoId===t.id).sort((a,b)=>a.nombre.localeCompare(b.nombre));
+    if(!lista.length) return;
+    const total=lista.reduce((a,c)=>a+saldoCuenta(c.id),0);
+    h+=`<div class="card"><div style="display:flex;justify-content:space-between"><h3 style="margin:0">${esc(t.nombre)}</h3><b>${money(total)}</b></div>`;
+    lista.forEach(c=>{
+      const saldo=saldoCuenta(c.id), n=S.cargos.filter(x=>x.cuentaId===c.id&&x.estado!=='pagado').length;
+      let extra='';
+      if(c.comportamiento==='factura'&&c.limiteCredito){
+        const pct=Math.min(100,saldo/c.limiteCredito*100);
+        extra=`<div class="bar" style="margin-top:6px"><i class="${pct>85?'red':pct>60?'warn':''}" style="width:${pct}%"></i></div>
+          <div class="s muted">Disponible ${money0(Math.max(0,c.limiteCredito-saldo))} de ${money0(c.limiteCredito)}</div>`;
+      }
+      h+=`<div class="item" onclick="detalleCuenta('${c.id}')" style="cursor:pointer"><div class="grow">
+          <div class="t">${esc(c.nombre)}<span class="tag">${c.ambito==='personal'?'Personal':'Negocio'}</span></div>
+          <div class="s muted">${n?`${n} pendiente${n>1?'s':''}`:'Al corriente'}</div>${extra}</div>
+          <div class="r amt">${money(saldo)}</div></div>`;
+    });
+    h+=`</div>`;
+  });
+  return h+`<button class="btn sec full" onclick="formCuenta()">+ Nueva cuenta</button>`;
+}
+
+/* ---------- DEUDAS ---------- */
+function vDeudas(){
+  const ps=S.cuentas.filter(c=>c.comportamiento==='prestamo'&&c.activa!==false&&pasaFiltro(c));
+  const btn=`<button class="btn sec full" onclick="formCuenta(null,'prestamo')">+ Nueva deuda</button>`;
+  if(!ps.length) return chips()+`<div class="empty">Sin deudas a largo plazo registradas.</div>`+btn;
+  const total=ps.reduce((a,c)=>a+saldoPrestamo(c),0);
+  let h=chips()+`<div class="card soft"><span class="muted">Deuda total</span><div style="font-size:24px;font-weight:700">${money(total)}</div></div>`;
+  ps.sort((a,b)=>saldoPrestamo(b)-saldoPrestamo(a)).forEach(c=>{
+    const ab=abonadoPrestamo(c), sal=saldoPrestamo(c), pct=c.montoOriginal?Math.min(100,ab/c.montoOriginal*100):0;
+    h+=`<div class="card" onclick="detalleCuenta('${c.id}')" style="cursor:pointer">
+      <div style="display:flex;justify-content:space-between"><b>${esc(c.nombre)}<span class="tag">${c.ambito==='personal'?'Personal':'Negocio'}</span></b><b>${money(sal)}</b></div>
+      <div class="progress"><i style="width:${pct}%"></i></div>
+      <div class="s muted small">Abonado ${money0(ab)} de ${money0(c.montoOriginal)} (${Math.round(pct)}%)
+        ${c.tieneMensualidad?` · Mensualidad ${money0(c.mensualidadMonto)} el día ${c.mensualidadDia}`:' · Abonos libres'}</div>
+      <button class="mini" onclick="event.stopPropagation();formAbono('${c.id}')">Abonar</button></div>`;
+  });
+  return h+btn;
+}
+
+/* ---------- AJUSTES ---------- */
+function vAjustes(){
+  const cf=S.config, avisos=(cf.avisos||[7,3,0]).map(d=>d===0?'el mismo día':`${d} días antes`).join(', ');
+  const archivadas=S.cuentas.filter(c=>c.activa===false);
+  return `<div class="card"><h3 style="margin-top:0">Tipos de cuenta</h3>
+      ${tiposOrden().map(t=>`<div class="item"><div class="grow"><div class="t">${esc(t.nombre)}</div><div class="s muted">${COMP[t.comportamiento]}</div></div>
+        <button class="mini sec" onclick="renombrarTipo('${t.id}')">Renombrar</button></div>`).join('')}
+      <button class="btn sec full" style="margin-top:8px" onclick="formTipo()">+ Nuevo tipo</button></div>
+    <div class="card"><h3 style="margin-top:0">Avisos</h3>
+      <p>Avisar ${avisos}, a las ${cf.horaAvisos||'09:00'}.<br>Resumen diario a las ${cf.horaResumen||'08:00'}.</p>
+      <p class="muted small">Las notificaciones se activan en la versión Android.</p>
+      <button class="btn sec" onclick="formAvisos()">Editar avisos</button></div>
+    ${archivadas.length?`<div class="card"><h3 style="margin-top:0">Cuentas archivadas</h3>${archivadas.map(c=>`<div class="item"><div class="grow">${esc(c.nombre)}</div>
+      <button class="mini sec" onclick="col('cuentas').doc('${c.id}').update({activa:true})">Restaurar</button></div>`).join('')}</div>`:''}
+    <div class="card"><h3 style="margin-top:0">Datos</h3><button class="btn sec" onclick="exportar()">Exportar a CSV</button></div>
+    <div class="card"><div class="muted small">Sesión: ${esc(email)}</div><button class="btn sec" style="margin-top:8px" onclick="auth.signOut()">Cerrar sesión</button></div>`;
+}
+
+/* ============ HOJAS (MODALES) ============ */
+function openSheet(h){$('sheet').innerHTML=h;$('sheetBg').style.display='flex';$('sheet').scrollTop=0}
+function closeSheet(){$('sheetBg').style.display='none';$('sheet').innerHTML=''}
+const botones = accion => `<div class="row"><button class="btn sec" onclick="closeSheet()">Cancelar</button><button class="btn" onclick="${accion}">Guardar</button></div>`;
+
+/* ---------- DETALLE DE CUENTA ---------- */
+function detalleCuenta(id){
+  const c=cuentaById(id); if(!c) return;
+  const t=tipoById(c.tipoId), esP=c.comportamiento==='prestamo';
+  const pend=S.cargos.filter(x=>x.cuentaId===id&&x.estado!=='pagado').sort(byVenc);
+  const pags=S.pagos.filter(x=>x.cuentaId===id).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')).slice(0,40);
+  let info='';
+  if(c.comportamiento==='factura') info=`Plazo ${c.plazoDias||30} días${c.limiteCredito?` · Límite ${money0(c.limiteCredito)}`:''}`;
+  if(c.comportamiento==='tarjeta') info=`Corte día ${c.diaCorte||'—'} · Límite de pago día ${c.diaLimite||'—'}`;
+  if(c.comportamiento==='recurrente') info=`${c.periodicidad===2?'Bimestral':c.periodicidad===12?'Anual':'Mensual'}${c.diaVencimiento?` · vence día ${c.diaVencimiento}`:''}${c.montoEstimado?` · aprox. ${money0(c.montoEstimado)}`:''}`;
+  if(esP) info=`Original ${money(c.montoOriginal)} · ${c.tieneMensualidad?`mensualidad ${money0(c.mensualidadMonto)} el día ${c.mensualidadDia}`:'abonos libres'}`;
+  const saldo=esP?saldoPrestamo(c):saldoCuenta(id);
+  openSheet(`<div class="sheet-h"><h2>${esc(c.nombre)}</h2><button class="x" onclick="closeSheet()">✕</button></div>
+    <div class="muted small">${esc(t?t.nombre:'')} · ${c.ambito==='personal'?'Personal':'Negocio'} · ${info}</div>
+    <div class="card soft" style="margin-top:12px"><span class="muted">${esP?'Saldo de la deuda':'Saldo pendiente'}</span>
+      <div style="font-size:22px;font-weight:700">${money(saldo)}</div></div>
+    <div class="row" style="margin-top:0">${esP?`<button class="btn" onclick="formAbono('${id}')">Abonar</button>`:`<button class="btn" onclick="formCargo('${id}')">+ ${c.comportamiento==='factura'?'Factura':'Cargo'}</button>`}
+      <button class="btn sec" onclick="formCuenta('${id}')">Editar</button></div>
+    <h3>Pendientes</h3>${pend.length?pend.map(x=>itemCargo(x,true)).join(''):'<p class="muted">Nada pendiente.</p>'}
+    <h3>Pagos</h3>${pags.length?pags.map(itemPago).join(''):'<p class="muted">Sin pagos registrados.</p>'}
+    <button class="link danger" style="margin-top:16px" onclick="archivarCuenta('${id}')">Archivar cuenta</button>`);
+}
+function itemPago(p){
+  const g=p.cargoId?S.cargos.find(x=>x.id===p.cargoId):null;
+  return `<div class="item"><div class="grow"><div class="t" style="font-weight:500">${fLarga(p.fecha)}${g&&g.folio?` · ${esc(g.folio)}`:p.cargoId?'':' · Abono'}</div>
+    <div class="s muted">${p.recargos?`<span class="red-t">Recargos ${money(p.recargos)}</span> `:''}${esc(p.nota||'')}</div></div>
+    <div class="r"><div class="amt">${money(p.monto)}</div><button class="link danger" onclick="deshacerPago('${p.id}')">Deshacer</button></div></div>`;
+}
+
+/* ---------- CUENTA: CREAR / EDITAR ---------- */
+let ctaEdit={};
+function formCuenta(id,pre){
+  ctaEdit=id?cuentaById(id):{};
+  const tipos=tiposOrden();
+  const tipoId=ctaEdit.tipoId||(pre&&(tipos.find(t=>t.comportamiento===pre)||{}).id)||(tipos[0]||{}).id;
+  openSheet(`<h2>${id?'Editar':'Nueva'} cuenta</h2>
+    <label>Nombre</label><input id="f_nombre" value="${esc(ctaEdit.nombre||'')}" placeholder="Ej. Cementos del Sureste">
+    <label>Tipo</label><select id="f_tipo" onchange="camposCuenta()" ${id?'disabled':''}>${tipos.map(t=>`<option value="${t.id}" ${t.id===tipoId?'selected':''}>${esc(t.nombre)}</option>`).join('')}</select>
+    <label>Ámbito</label><select id="f_ambito"><option value="negocio">Negocio</option><option value="personal" ${ctaEdit.ambito==='personal'?'selected':''}>Personal</option></select>
+    <div id="f_extra"></div>${botones(`guardarCuenta('${id||''}')`)}`);
+  camposCuenta();
+}
+function camposCuenta(){
+  const t=tipoById(val('f_tipo')); if(!t) return; const c=ctaEdit; let h='';
+  if(t.comportamiento==='factura') h=num('f_plazo','Plazo (días)',c.plazoDias??30)+num('f_limite','Límite de crédito (opcional)',c.limiteCredito??'');
+  if(t.comportamiento==='tarjeta') h=`<div class="grid2"><div>${num('f_corte','Día de corte',c.diaCorte??'','min="1" max="31"')}</div><div>${num('f_dlim','Día límite de pago',c.diaLimite??'','min="1" max="31"')}</div></div>`;
+  if(t.comportamiento==='recurrente') h=`<label>Periodicidad</label><select id="f_period">
+      <option value="1">Mensual</option><option value="2" ${c.periodicidad===2?'selected':''}>Bimestral</option><option value="12" ${c.periodicidad===12?'selected':''}>Anual</option></select>
+      <div class="grid2"><div>${num('f_dia','Día de vencimiento',c.diaVencimiento??'','min="1" max="31"')}</div><div>${num('f_est','Monto aproximado',c.montoEstimado??'')}</div></div>
+      <p class="muted small">Con día y monto, se crea el primer recibo y, al pagarlo, el siguiente.</p>`;
+  if(t.comportamiento==='prestamo') h=num('f_orig','Monto total de la deuda',c.montoOriginal??'')+
+    `<label class="check"><input type="checkbox" id="f_mens" ${c.tieneMensualidad?'checked':''} onchange="$('f_mbox').style.display=this.checked?'block':'none'">Tiene mensualidad fija</label>
+     <div id="f_mbox" style="display:${c.tieneMensualidad?'block':'none'}"><div class="grid2"><div>${num('f_mmonto','Mensualidad',c.mensualidadMonto??'')}</div>
+     <div>${num('f_mdia','Día de pago',c.mensualidadDia??'','min="1" max="31"')}</div></div>
+     <p class="muted small">La mensualidad aparece en Inicio con sus avisos. El saldo total de la deuda no.</p></div>`;
+  $('f_extra').innerHTML=h;
+}
+function guardarCuenta(id){
+  const t=tipoById(val('f_tipo')), nombre=val('f_nombre').trim();
+  if(!nombre) return alerta('Escribe un nombre.');
+  const d={nombre,tipoId:t.id,comportamiento:t.comportamiento,ambito:val('f_ambito'),activa:true};
+  const dia = v => v&&v>=1&&v<=31 ? v : null;
+  if(d.comportamiento==='factura'){d.plazoDias=intv('f_plazo')||30;d.limiteCredito=numv('f_limite')}
+  if(d.comportamiento==='tarjeta'){d.diaCorte=dia(intv('f_corte'));d.diaLimite=dia(intv('f_dlim'))}
+  if(d.comportamiento==='recurrente'){d.periodicidad=intv('f_period')||1;d.diaVencimiento=dia(intv('f_dia'));d.montoEstimado=numv('f_est')}
+  if(d.comportamiento==='prestamo'){
+    d.montoOriginal=numv('f_orig'); if(!(d.montoOriginal>0)) return alerta('Captura el monto total de la deuda.');
+    d.tieneMensualidad=$('f_mens').checked;
+    d.mensualidadMonto=d.tieneMensualidad?numv('f_mmonto'):null; d.mensualidadDia=d.tieneMensualidad?dia(intv('f_mdia')):null;
+    if(d.tieneMensualidad&&!(d.mensualidadMonto>0&&d.mensualidadDia)) return alerta('Captura monto y día de la mensualidad.');
+  }
+  const b=db.batch(), ref=id?col('cuentas').doc(id):col('cuentas').doc();
+  if(id) b.update(ref,d); else b.set(ref,{...d,creado:ts()});
+  if(!id&&d.comportamiento==='recurrente'&&d.diaVencimiento&&d.montoEstimado)
+    b.set(col('cargos').doc(),nuevoCargo(ref.id,'Recibo',d.montoEstimado,hoy(),proximoDia(d.diaVencimiento)));
+  if(d.comportamiento==='prestamo'){
+    const mensPend=S.cargos.filter(x=>x.cuentaId===ref.id&&x.esMensualidad&&x.estado!=='pagado');
+    if(d.tieneMensualidad&&!mensPend.length){
+      const saldo=id?saldoPrestamo({...cuentaById(id),...d}):d.montoOriginal;
+      if(saldo>0) b.set(col('cargos').doc(),{...nuevoCargo(ref.id,'Mensualidad',Math.min(d.mensualidadMonto,saldo),hoy(),proximoDia(d.mensualidadDia)),esMensualidad:true});
+    }
+    if(!d.tieneMensualidad) mensPend.filter(x=>x.saldo===x.montoOriginal).forEach(x=>b.delete(col('cargos').doc(x.id)));
+  }
+  commit(b); closeSheet();
+}
+function archivarCuenta(id){
+  const c=cuentaById(id);
+  const pend=c.comportamiento==='prestamo'?saldoPrestamo(c)>0:S.cargos.some(x=>x.cuentaId===id&&x.estado!=='pagado');
+  if(pend) return alerta('Esta cuenta tiene saldo pendiente. Liquídalo o elimina los cargos antes de archivarla.');
+  if(!confirm(`¿Archivar "${c.nombre}"? Podrás restaurarla desde Ajustes.`)) return;
+  col('cuentas').doc(id).update({activa:false}); closeSheet();
+}
+
+/* ---------- CARGO: FACTURA / ESTADO DE CUENTA / RECIBO ---------- */
+function formCargo(cuentaId){
+  const ctas=S.cuentas.filter(c=>c.comportamiento!=='prestamo'&&c.activa!==false).sort((a,b)=>a.nombre.localeCompare(b.nombre));
+  if(!ctas.length){alerta('Primero da de alta una cuenta (proveedor, tarjeta o servicio).');return formCuenta()}
+  cuentaId=cuentaId||ctas[0].id;
+  openSheet(`<h2>Nuevo cargo</h2>
+    <label>Cuenta</label><select id="g_cta" onchange="camposCargo()">${ctas.map(c=>`<option value="${c.id}" ${c.id===cuentaId?'selected':''}>${esc(c.nombre)}</option>`).join('')}</select>
+    <div id="g_extra"></div>${botones('guardarCargo()')}`);
+  camposCargo();
+}
+function camposCargo(){
+  const c=cuentaById(val('g_cta')); let h='';
+  if(c.comportamiento==='factura'){
+    const plazo=c.plazoDias||30;
+    h=`<label>Folio de factura</label><input id="g_folio" placeholder="Ej. A-10234">${num('g_monto','Saldo','')}
+      <div class="grid2"><div><label>Fecha de factura</label><input type="date" id="g_emi" value="${hoy()}" onchange="autoVence()"></div>
+      <div><label>Vence (${plazo} días)</label><input type="date" id="g_venc" value="${addDays(hoy(),plazo)}" oninput="this.dataset.manual='1'"></div></div>`;
+  }else if(c.comportamiento==='tarjeta'){
+    h=`<label>Concepto</label><input id="g_folio" value="Estado de cuenta ${MESES[new Date().getMonth()]}">
+      ${num('g_monto','Pago para no generar intereses','')}
+      <label>Fecha límite de pago</label><input type="date" id="g_venc" value="${c.diaLimite?proximoDia(c.diaLimite):addDays(hoy(),20)}">`;
+  }else{
+    h=`<label>Concepto</label><input id="g_folio" value="Recibo">${num('g_monto','Monto',c.montoEstimado??'')}
+      <label>Vence</label><input type="date" id="g_venc" value="${c.diaVencimiento?proximoDia(c.diaVencimiento):hoy()}">`;
+  }
+  $('g_extra').innerHTML=h;
+}
+function autoVence(){
+  const v=$('g_venc'); if(v.dataset.manual) return;
+  const c=cuentaById(val('g_cta')); if(val('g_emi')) v.value=addDays(val('g_emi'),c.plazoDias||30);
+}
+function guardarCargo(){
+  const c=cuentaById(val('g_cta')), monto=numv('g_monto'), venc=val('g_venc'), folio=val('g_folio').trim();
+  if(!(monto>0)) return alerta('Captura un monto válido.');
+  if(!venc) return alerta('Captura la fecha de vencimiento.');
+  if(c.comportamiento==='factura'&&folio&&S.cargos.some(x=>x.cuentaId===c.id&&x.folio===folio)&&!confirm(`Ya existe la factura ${folio} de este proveedor. ¿Capturarla de nuevo?`)) return;
+  col('cargos').add(nuevoCargo(c.id,folio,round2(monto),val('g_emi')||hoy(),venc)).catch(e=>alerta('Error: '+e.message));
+  closeSheet();
+}
+function eliminarCargo(id){
+  const g=S.cargos.find(x=>x.id===id);
+  if(S.pagos.some(p=>p.cargoId===id)) return alerta('Este cargo tiene pagos. Deshaz los pagos primero.');
+  if(!confirm(`¿Eliminar ${g.folio||'este cargo'} por ${money(g.saldo)}?`)) return;
+  col('cargos').doc(id).delete(); closeSheet();
+}
+
+/* ---------- PAGOS ---------- */
+function formPago(cargoId){
+  const g=S.cargos.find(x=>x.id===cargoId), c=cuentaById(g.cuentaId), completo=c.comportamiento==='factura';
+  openSheet(`<h2>Registrar pago</h2>
+    <div class="card soft"><b>${esc(c.nombre)}</b>${g.folio?` · ${esc(g.folio)}`:''}<br>
+      <span class="muted">Saldo ${money(g.saldo)} · vence ${fLarga(g.fechaVencimiento)}</span></div>
+    ${completo?`<p>Se liquida completa: <b>${money(g.saldo)}</b></p><input type="hidden" id="p_monto" value="${g.saldo}">`
+      :num('p_monto',g.esMensualidad?'Monto pagado (lo extra se abona a la deuda)':'Monto pagado',g.saldo)}
+    <label>Fecha de pago</label><input type="date" id="p_fecha" value="${hoy()}">
+    ${num('p_rec','Intereses / recargos pagados (aparte)',0)}
+    <label>Nota (opcional)</label><input id="p_nota">
+    ${botones(`guardarPago('${cargoId}')`)}`);
+}
+function guardarPago(cargoId){
+  const g=S.cargos.find(x=>x.id===cargoId), c=cuentaById(g.cuentaId);
+  const monto=round2(numv('p_monto')||0), fecha=val('p_fecha')||hoy(), rec=numv('p_rec')||0, nota=val('p_nota').trim();
+  if(!(monto>0)) return alerta('Captura un monto válido.');
+  const b=db.batch();
+  b.set(col('pagos').doc(),{cuentaId:c.id,cargoId,monto,fecha,recargos:rec,nota,creado:ts()});
+  const nuevoSaldo=Math.max(0,round2(g.saldo-monto)), liquidado=nuevoSaldo===0;
+  b.update(col('cargos').doc(cargoId),{saldo:nuevoSaldo,estado:liquidado?'pagado':'parcial',pagadoEn:liquidado?fecha:null});
+  if(liquidado&&c.comportamiento==='recurrente'){
+    const otroPend=S.cargos.some(x=>x.cuentaId===c.id&&x.id!==cargoId&&x.estado!=='pagado');
+    if(!otroPend) b.set(col('cargos').doc(),nuevoCargo(c.id,g.folio||'Recibo',c.montoEstimado||g.montoOriginal,hoy(),
+      addMonths(g.fechaVencimiento,c.periodicidad||1,c.diaVencimiento)));
+  }
+  if(liquidado&&g.esMensualidad&&c.tieneMensualidad){
+    const resta=round2(saldoPrestamo(c)-monto);
+    if(resta>0) b.set(col('cargos').doc(),{...nuevoCargo(c.id,'Mensualidad',Math.min(c.mensualidadMonto,resta),hoy(),
+      addMonths(g.fechaVencimiento,1,c.mensualidadDia)),esMensualidad:true});
+  }
+  commit(b); closeSheet();
+}
+function formAbono(id){
+  const c=cuentaById(id);
+  openSheet(`<h2>Abonar a ${esc(c.nombre)}</h2>
+    <div class="card soft">Saldo actual: <b>${money(saldoPrestamo(c))}</b>
+    ${c.tieneMensualidad?'<br><span class="muted small">Este abono baja el saldo pero no cubre la mensualidad pendiente.</span>':''}</div>
+    ${num('a_monto','Monto del abono','')}
+    <label>Fecha</label><input type="date" id="a_fecha" value="${hoy()}">
+    <label>Nota (opcional)</label><input id="a_nota">${botones(`guardarAbono('${id}')`)}`);
+}
+function guardarAbono(id){
+  const c=cuentaById(id), monto=round2(numv('a_monto')||0), saldo=saldoPrestamo(c);
+  if(!(monto>0)) return alerta('Captura un monto válido.');
+  if(monto>saldo&&!confirm(`El abono (${money(monto)}) es mayor al saldo (${money(saldo)}). ¿Continuar?`)) return;
+  const b=db.batch();
+  b.set(col('pagos').doc(),{cuentaId:id,cargoId:null,monto,fecha:val('a_fecha')||hoy(),recargos:0,nota:val('a_nota').trim(),creado:ts()});
+  if(saldo-monto<=0) S.cargos.filter(x=>x.cuentaId===id&&x.esMensualidad&&x.estado!=='pagado')
+    .forEach(x=>b.update(col('cargos').doc(x.id),{saldo:0,estado:'pagado',pagadoEn:hoy()}));
+  commit(b); closeSheet();
+}
+function deshacerPago(id){
+  const p=S.pagos.find(x=>x.id===id);
+  if(!confirm(`¿Deshacer el pago de ${money(p.monto)} del ${fLarga(p.fecha)}?`)) return;
+  const b=db.batch(); b.delete(col('pagos').doc(id));
+  const g=p.cargoId&&S.cargos.find(x=>x.id===p.cargoId);
+  if(g){const s=Math.min(g.montoOriginal,round2(g.saldo+p.monto));
+    b.update(col('cargos').doc(g.id),{saldo:s,estado:s>=g.montoOriginal?'pendiente':'parcial',pagadoEn:null})}
+  commit(b); closeSheet();
+  if(g) setTimeout(()=>alerta('Pago deshecho. Si al pagarlo se generó el siguiente recibo o mensualidad, elimínalo desde la cuenta si ya no aplica.'),100);
+}
+
+/* ---------- AJUSTES: TIPOS Y AVISOS ---------- */
+function renombrarTipo(id){
+  const t=tipoById(id), n=prompt('Nuevo nombre del tipo:',t.nombre);
+  if(n&&n.trim()) col('tipos').doc(id).update({nombre:n.trim()});
+}
+function formTipo(){
+  openSheet(`<h2>Nuevo tipo de cuenta</h2><label>Nombre</label><input id="t_nombre" placeholder="Ej. Crédito automotriz">
+    <label>Se comporta como</label><select id="t_comp">${Object.entries(COMP).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select>
+    ${botones('guardarTipo()')}`);
+}
+function guardarTipo(){
+  const n=val('t_nombre').trim(); if(!n) return alerta('Escribe un nombre.');
+  const orden=Math.max(0,...S.tipos.map(t=>t.orden||0))+1;
+  col('tipos').add({nombre:n,comportamiento:val('t_comp'),orden}); closeSheet();
+}
+function formAvisos(){
+  const cf=S.config;
+  openSheet(`<h2>Avisos</h2>
+    <label>Días antes del vencimiento (separados por coma, 0 = mismo día)</label><input id="v_dias" value="${(cf.avisos||[7,3,0]).join(', ')}">
+    <div class="grid2"><div><label>Hora de avisos</label><input type="time" id="v_hora" value="${cf.horaAvisos||'09:00'}"></div>
+    <div><label>Resumen diario</label><input type="time" id="v_res" value="${cf.horaResumen||'08:00'}"></div></div>
+    ${botones('guardarAvisos()')}`);
+}
+function guardarAvisos(){
+  const dias=[...new Set(val('v_dias').split(',').map(x=>parseInt(x,10)).filter(x=>!isNaN(x)&&x>=0&&x<=60))].sort((a,b)=>b-a);
+  if(!dias.length) return alerta('Captura al menos un día.');
+  col('config').doc('general').set({avisos:dias,horaAvisos:val('v_hora')||'09:00',horaResumen:val('v_res')||'08:00'},{merge:true});
+  closeSheet();
+}
+
+/* ---------- EXPORTAR ---------- */
+function exportar(){
+  const q=v=>`"${String(v??'').replace(/"/g,'""')}"`, nom=id=>(cuentaById(id)||{}).nombre||'';
+  const cargos=[['Cuenta','Folio/Concepto','Monto','Saldo','Emisión','Vencimiento','Estado','Pagado en'],
+    ...S.cargos.sort(byVenc).map(c=>[nom(c.cuentaId),c.folio,c.montoOriginal,c.saldo,c.fechaEmision,c.fechaVencimiento,c.estado,c.pagadoEn||''])];
+  const pagos=[['Cuenta','Folio','Monto','Recargos','Fecha','Nota'],
+    ...S.pagos.sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||'')).map(p=>[nom(p.cuentaId),(S.cargos.find(x=>x.id===p.cargoId)||{}).folio||'Abono',p.monto,p.recargos||0,p.fecha,p.nota])];
+  [['cargos',cargos],['pagos',pagos]].forEach(([n,rows],i)=>setTimeout(()=>{
+    const blob=new Blob(['\ufeff'+rows.map(r=>r.map(q).join(',')).join('\n')],{type:'text/csv;charset=utf-8'});
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`${n}_${hoy()}.csv`; a.click();
+  },i*400));
+}
+</script>
+</body>
+</html>
