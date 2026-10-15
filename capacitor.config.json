@@ -1,0 +1,13 @@
+{
+  "appId": "mx.materialespalenque.creditos",
+  "appName": "Agenda de Créditos",
+  "webDir": "www",
+  "android": {
+    "adjustMarginsForEdgeToEdge": "force"
+  },
+  "plugins": {
+    "LocalNotifications": {
+      "iconColor": "#1f5fbf"
+    }
+  }
+}

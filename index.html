@@ -12,7 +12,7 @@
 *{box-sizing:border-box}
 body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);
   font-variant-numeric:tabular-nums;padding-bottom:84px;-webkit-tap-highlight-color:transparent}
-header{padding:16px 16px 8px;max-width:720px;margin:0 auto;display:flex;justify-content:space-between;align-items:baseline}
+header{padding:calc(16px + env(safe-area-inset-top)) 16px 8px;max-width:720px;margin:0 auto;display:flex;justify-content:space-between;align-items:baseline}
 h1{font-size:20px;margin:0}h2{font-size:18px;margin:0 0 8px}h3{font-size:15px;margin:18px 0 8px}
 main{padding:0 16px;max-width:720px;margin:0 auto}
 .muted{color:var(--muted)}.small{font-size:12px}
@@ -74,7 +74,13 @@ input[type=checkbox]{width:auto;margin-right:8px}
 <div id="login" class="login" style="display:none">
   <h1>Agenda de Créditos</h1>
   <p class="muted">Control de facturas, tarjetas, recibos y deudas.</p>
-  <button class="btn" onclick="entrar()">Entrar con Google</button>
+  <div style="width:100%;max-width:320px">
+    <input id="l_email" type="email" placeholder="Correo" autocomplete="username">
+    <input id="l_pass" type="password" placeholder="Contraseña" autocomplete="current-password" style="margin-top:8px" onkeydown="if(event.key==='Enter')entrarCorreo()">
+    <button class="btn full" style="margin-top:10px" onclick="entrarCorreo()">Entrar</button>
+    <div id="l_google"><p class="muted small" style="margin:16px 0 8px">o</p>
+      <button class="btn sec full" onclick="entrar()">Entrar con Google</button></div>
+  </div>
 </div>
 
 <div id="app" style="display:none">
@@ -109,6 +115,11 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 db.enablePersistence({synchronizeTabs:true}).catch(()=>{});
+
+/* ============ PLATAFORMA ============ */
+const NATIVO = !!(window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform());
+const LN = NATIVO ? Capacitor.Plugins.LocalNotifications : null;
+if(NATIVO) document.addEventListener('DOMContentLoaded',()=>{const g=$('l_google');if(g)g.style.display='none'});
 
 /* ============ ESTADO ============ */
 let uid = null, email = '', unsubs = [], tab = 'inicio', filtroAmbito = 'todo', renderPendiente = false;
@@ -189,6 +200,16 @@ function entrar(){
     else alerta(e.message);
   });
 }
+function entrarCorreo(){
+  const e=val('l_email').trim(), p=val('l_pass');
+  if(!e||!p) return alerta('Escribe tu correo y contraseña.');
+  auth.signInWithEmailAndPassword(e,p).catch(err=>{
+    const m={'auth/invalid-credential':'Correo o contraseña incorrectos.','auth/wrong-password':'Contraseña incorrecta.',
+      'auth/user-not-found':'No existe una cuenta con ese correo.','auth/too-many-requests':'Demasiados intentos. Espera unos minutos.',
+      'auth/network-request-failed':'Sin conexión a internet.'};
+    alerta(m[err.code]||err.message);
+  });
+}
 auth.onAuthStateChanged(async u=>{
   unsubs.forEach(f=>f()); unsubs=[];
   if(!u){uid=null;$('login').style.display='flex';$('app').style.display='none';return}
@@ -209,9 +230,9 @@ async function asegurarBase(){
 }
 function escuchar(){
   ['tipos','cuentas','cargos','pagos'].forEach(n=>{
-    unsubs.push(col(n).onSnapshot(s=>{S[n]=s.docs.map(d=>({id:d.id,...d.data()}));render()},e=>console.error(n,e)));
+    unsubs.push(col(n).onSnapshot(s=>{S[n]=s.docs.map(d=>({id:d.id,...d.data()}));render();programarAvisos()},e=>console.error(n,e)));
   });
-  unsubs.push(col('config').doc('general').onSnapshot(d=>{S.config=d.data()||{};render()},e=>console.error('config',e)));
+  unsubs.push(col('config').doc('general').onSnapshot(d=>{S.config=d.data()||{};render();programarAvisos()},e=>console.error('config',e)));
 }
 
 /* ============ RENDER ============ */
@@ -336,8 +357,13 @@ function vAjustes(){
       <button class="btn sec full" style="margin-top:8px" onclick="formTipo()">+ Nuevo tipo</button></div>
     <div class="card"><h3 style="margin-top:0">Avisos</h3>
       <p>Avisar ${avisos}, a las ${cf.horaAvisos||'09:00'}.<br>Resumen diario a las ${cf.horaResumen||'08:00'}.</p>
-      <p class="muted small">Las notificaciones se activan en la versión Android.</p>
-      <button class="btn sec" onclick="formAvisos()">Editar avisos</button></div>
+      <p class="muted small">${NATIVO?'Los avisos se reprograman cada vez que abres la app o cambias algo.':'Las notificaciones funcionan en la app Android.'}</p>
+      <div class="row" style="margin-top:8px"><button class="btn sec" onclick="formAvisos()">Editar avisos</button>
+      ${NATIVO?'<button class="btn sec" onclick="probarAviso()">Probar aviso</button>':''}</div></div>
+    ${!NATIVO?(()=>{const tiene=auth.currentUser&&auth.currentUser.providerData.some(p=>p.providerId==='password');
+      return `<div class="card"><h3 style="margin-top:0">Acceso desde la app Android</h3>
+      ${tiene?`<p>Ya tienes contraseña. En la app entra con <b>${esc(email)}</b> y esa contraseña.</p><button class="btn sec" onclick="formPassword(true)">Cambiar contraseña</button>`
+      :`<p class="muted small">La app Android no puede usar el botón de Google. Crea una contraseña para entrar con tu correo; verás exactamente los mismos datos.</p><button class="btn" onclick="formPassword(false)">Crear contraseña</button>`}</div>`})():''}
     ${archivadas.length?`<div class="card"><h3 style="margin-top:0">Cuentas archivadas</h3>${archivadas.map(c=>`<div class="item"><div class="grow">${esc(c.nombre)}</div>
       <button class="mini sec" onclick="col('cuentas').doc('${c.id}').update({activa:true})">Restaurar</button></div>`).join('')}</div>`:''}
     <div class="card"><h3 style="margin-top:0">Datos</h3><button class="btn sec" onclick="exportar()">Exportar a CSV</button></div>
@@ -641,8 +667,91 @@ function guardarAvisos(){
   closeSheet();
 }
 
+
+/* ---------- CONTRASEÑA (para la app Android) ---------- */
+function formPassword(cambiar){
+  openSheet(`<h2>${cambiar?'Cambiar':'Crear'} contraseña</h2>
+    <p class="muted small">Correo: ${esc(email)}</p>
+    <label>Contraseña (mínimo 6 caracteres)</label><input id="pw1" type="password" autocomplete="new-password">
+    <label>Repite la contraseña</label><input id="pw2" type="password" autocomplete="new-password">
+    ${botones(`guardarPassword(${cambiar})`)}`);
+}
+function guardarPassword(cambiar){
+  const a=val('pw1'), b=val('pw2'), u=auth.currentUser;
+  if(a.length<6) return alerta('La contraseña debe tener al menos 6 caracteres.');
+  if(a!==b) return alerta('Las contraseñas no coinciden.');
+  const p=cambiar?u.updatePassword(a):u.linkWithCredential(firebase.auth.EmailAuthProvider.credential(email,a));
+  p.then(()=>{closeSheet();alerta('Listo. Ya puedes entrar en la app Android con tu correo y esta contraseña.');render(true)})
+   .catch(e=>{
+     if(e.code==='auth/requires-recent-login') alerta('Por seguridad, cierra sesión, vuelve a entrar con Google e inténtalo de nuevo.');
+     else if(e.code==='auth/operation-not-allowed') alerta('Falta activar "Correo electrónico/contraseña" en Firebase → Authentication → Método de acceso.');
+     else alerta('Error: '+e.message);
+   });
+}
+
+/* ---------- NOTIFICACIONES (solo app Android) ---------- */
+let avisosTimer=null;
+function programarAvisos(){ if(!LN||!uid) return; clearTimeout(avisosTimer); avisosTimer=setTimeout(_programarAvisos,1500); }
+const hashId = s => {let h=0;for(const ch of s)h=(h*31+ch.charCodeAt(0))|0;return Math.abs(h)%2000000000+1};
+const horaDe = (s,def) => {const [h,m]=String(s||def).split(':').map(Number);return [isNaN(h)?9:h,isNaN(m)?0:m]};
+async function _programarAvisos(){
+  try{
+    let perm=await LN.checkPermissions();
+    if(perm.display!=='granted') perm=await LN.requestPermissions();
+    if(perm.display!=='granted') return;
+    const pend=await LN.getPending();
+    if(pend.notifications.length) await LN.cancel({notifications:pend.notifications.map(n=>({id:n.id}))});
+    const cf=S.config, dias=cf.avisos||[7,3,0], [hA,mA]=horaDe(cf.horaAvisos,'09:00'), [hR,mR]=horaDe(cf.horaResumen,'08:00');
+    const ahora=new Date(), limite=ahora.getTime()+45*86400000, lista=[];
+    const pendientesTodos=S.cargos.filter(c=>c.estado!=='pagado'&&cuentaById(c.cuentaId));
+    pendientesTodos.forEach(c=>{
+      const cta=cuentaById(c.cuentaId);
+      dias.forEach(d=>{
+        const f=parseISO(addDays(c.fechaVencimiento,-d)); f.setHours(hA,mA,0,0);
+        if(f<=ahora||f.getTime()>limite) return;
+        lista.push({id:hashId(c.id+'|'+d),
+          title:d===0?`Hoy vence: ${cta.nombre}`:`${cta.nombre}: vence en ${d} día${d>1?'s':''}`,
+          body:`${c.folio?c.folio+' · ':''}${money(c.saldo)} · ${fLarga(c.fechaVencimiento)}`,
+          schedule:{at:f,allowWhileIdle:true}});
+      });
+    });
+    for(let i=0;i<14;i++){ // resumen diario: lo que vence en los 7 días siguientes (incluye vencidos)
+      const dia=addDays(hoy(),i), f=parseISO(dia); f.setHours(hR,mR,0,0);
+      if(f<=ahora) continue;
+      const semana=pendientesTodos.filter(c=>c.fechaVencimiento<=addDays(dia,6));
+      if(!semana.length) continue;
+      const total=semana.reduce((a,c)=>a+(c.saldo||0),0), venc=semana.filter(c=>c.fechaVencimiento<dia).length;
+      lista.push({id:hashId('resumen|'+dia), title:`Pagos de la semana: ${money0(total)}`,
+        body:`${semana.length} pago${semana.length>1?'s':''} en los próximos 7 días${venc?` · ${venc} vencido${venc>1?'s':''}`:''}`,
+        schedule:{at:f,allowWhileIdle:true}});
+    }
+    lista.sort((a,b)=>a.schedule.at-b.schedule.at);
+    if(lista.length) await LN.schedule({notifications:lista.slice(0,60)});
+  }catch(e){console.error('avisos',e)}
+}
+async function probarAviso(){
+  if(!LN) return alerta('Solo funciona en la app Android.');
+  try{
+    const r=await LN.requestPermissions();
+    if(r.display!=='granted') return alerta('Las notificaciones están bloqueadas. Actívalas en Ajustes de Android → Apps → Agenda de Créditos → Notificaciones.');
+    await LN.schedule({notifications:[{id:7,title:'Prueba de aviso',body:'Si ves esto, las notificaciones funcionan.',schedule:{at:new Date(Date.now()+10000),allowWhileIdle:true}}]});
+    alerta('Listo. En 10 segundos llega la notificación. Sal de la app para comprobar que llega aunque esté cerrada.');
+  }catch(e){alerta('Error: '+e.message)}
+}
+
+/* ---------- INTEGRACIÓN ANDROID ---------- */
+if(NATIVO&&Capacitor.Plugins.App){
+  Capacitor.Plugins.App.addListener('backButton',()=>{
+    if($('sheetBg').style.display==='flex') closeSheet();
+    else if(tab!=='inicio') irA('inicio');
+    else Capacitor.Plugins.App.minimizeApp();
+  });
+}
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden&&uid){render();programarAvisos()} });
+
 /* ---------- EXPORTAR ---------- */
 function exportar(){
+  if(NATIVO) return alerta('Exporta desde la versión web: ahí se descargan los archivos CSV.');
   const q=v=>`"${String(v??'').replace(/"/g,'""')}"`, nom=id=>(cuentaById(id)||{}).nombre||'';
   const cargos=[['Cuenta','Folio/Concepto','Monto','Saldo','Emisión','Vencimiento','Estado','Pagado en'],
     ...S.cargos.sort(byVenc).map(c=>[nom(c.cuentaId),c.folio,c.montoOriginal,c.saldo,c.fechaEmision,c.fechaVencimiento,c.estado,c.pagadoEn||''])];
