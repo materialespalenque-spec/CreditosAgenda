@@ -105,12 +105,10 @@ const firebaseConfig = {
   messagingSenderId: "275450861884",
   appId: "1:275450861884:web:00b38ecff8970d573ba639"
 };
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig); 
-
-/* ============ ESTADO ============ */
- 
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+db.enablePersistence({synchronizeTabs:true}).catch(()=>{});
 
 /* ============ ESTADO ============ */
 let uid = null, email = '', unsubs = [], tab = 'inicio', filtroAmbito = 'todo', renderPendiente = false;
