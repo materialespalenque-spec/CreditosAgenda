@@ -275,7 +275,7 @@ function itemCargo(c,conBorrar){
       <div class="s ${u}-t">${relativo(d)} · ${fLarga(c.fechaVencimiento)}${c.estado==='parcial'?' · parcial':''}</div></div>
     <div class="r"><div class="amt">${money(c.saldo)}</div>
       <button class="mini" onclick="event.stopPropagation();formPago('${c.id}')">Pagar</button>
-      ${conBorrar?`<br><button class="link danger" onclick="event.stopPropagation();eliminarCargo('${c.id}')">Eliminar</button>`:''}</div>
+      ${conBorrar?`<br><button class="link" onclick="event.stopPropagation();formEditarCargo('${c.id}')">Editar</button> · <button class="link danger" onclick="event.stopPropagation();eliminarCargo('${c.id}')">Eliminar</button>`:''}</div>
   </div>`;
 }
 
@@ -375,7 +375,7 @@ function itemPago(p){
   const g=p.cargoId?S.cargos.find(x=>x.id===p.cargoId):null;
   return `<div class="item"><div class="grow"><div class="t" style="font-weight:500">${fLarga(p.fecha)}${g&&g.folio?` · ${esc(g.folio)}`:p.cargoId?'':' · Abono'}</div>
     <div class="s muted">${p.recargos?`<span class="red-t">Recargos ${money(p.recargos)}</span> `:''}${esc(p.nota||'')}</div></div>
-    <div class="r"><div class="amt">${money(p.monto)}</div><button class="link danger" onclick="deshacerPago('${p.id}')">Deshacer</button></div></div>`;
+    <div class="r"><div class="amt">${money(p.monto)}</div><br><button class="link" onclick="formEditarPago('${p.id}')">Editar</button> · <button class="link danger" onclick="deshacerPago('${p.id}')">Deshacer</button></div></div>`;
 }
 
 /* ---------- CUENTA: CREAR / EDITAR ---------- */
@@ -549,6 +549,66 @@ function deshacerPago(id){
     b.update(col('cargos').doc(g.id),{saldo:s,estado:s>=g.montoOriginal?'pendiente':'parcial',pagadoEn:null})}
   commit(b); closeSheet();
   if(g) setTimeout(()=>alerta('Pago deshecho. Si al pagarlo se generó el siguiente recibo o mensualidad, elimínalo desde la cuenta si ya no aplica.'),100);
+}
+
+
+/* ---------- EDITAR CARGO ---------- */
+function formEditarCargo(id){
+  const g=S.cargos.find(x=>x.id===id), c=cuentaById(g.cuentaId), esF=c.comportamiento==='factura';
+  const pagado=round2(g.montoOriginal-g.saldo), plazo=c.plazoDias||30;
+  openSheet(`<h2>Editar ${esF?'factura':'cargo'}</h2>
+    <div class="muted small">${esc(c.nombre)}${pagado>0?` · ya pagado ${money(pagado)}`:''}</div>
+    <label>${esF?'Folio de factura':'Concepto'}</label><input id="e_folio" value="${esc(g.folio)}">
+    ${num('e_monto',esF?'Monto de la factura':'Monto total',g.montoOriginal)}
+    <div class="grid2"><div><label>${esF?'Fecha de factura':'Fecha de emisión'}</label><input type="date" id="e_emi" value="${g.fechaEmision||''}" ${esF?`onchange="if(!$('e_venc').dataset.manual&&this.value)$('e_venc').value=addDays(this.value,${plazo})"`:''}></div>
+    <div><label>Vence</label><input type="date" id="e_venc" value="${g.fechaVencimiento}" oninput="this.dataset.manual='1'"></div></div>
+    ${esF?`<p class="muted small">Si cambias la fecha de factura, el vencimiento se recalcula a ${plazo} días (a menos que lo hayas editado a mano).</p>`:''}
+    ${botones(`guardarEdicionCargo('${id}')`)}`);
+}
+function guardarEdicionCargo(id){
+  const g=S.cargos.find(x=>x.id===id), c=cuentaById(g.cuentaId);
+  const monto=round2(numv('e_monto')||0), venc=val('e_venc'), folio=val('e_folio').trim(), pagado=round2(g.montoOriginal-g.saldo);
+  if(!(monto>0)) return alerta('Captura un monto válido.');
+  if(!venc) return alerta('Captura la fecha de vencimiento.');
+  if(monto<pagado) return alerta(`Ya hay ${money(pagado)} pagado de este cargo; el monto no puede ser menor.`);
+  if(c.comportamiento==='factura'&&folio&&folio!==g.folio&&S.cargos.some(x=>x.cuentaId===c.id&&x.id!==id&&x.folio===folio)
+     &&!confirm(`Ya existe otra factura ${folio} de este proveedor. ¿Guardar de todos modos?`)) return;
+  const saldo=round2(monto-pagado);
+  col('cargos').doc(id).update({folio,montoOriginal:monto,saldo,fechaEmision:val('e_emi')||g.fechaEmision||hoy(),fechaVencimiento:venc,
+    estado:saldo===0?'pagado':pagado>0?'parcial':'pendiente',pagadoEn:saldo===0?hoy():null}).catch(e=>alerta('Error: '+e.message));
+  closeSheet();
+}
+
+/* ---------- EDITAR PAGO ---------- */
+function formEditarPago(id){
+  const p=S.pagos.find(x=>x.id===id), c=cuentaById(p.cuentaId), g=p.cargoId?S.cargos.find(x=>x.id===p.cargoId):null;
+  const montoEditable=!(g&&c.comportamiento==='factura');
+  openSheet(`<h2>Editar ${p.cargoId?'pago':'abono'}</h2>
+    <div class="card soft"><b>${esc(c.nombre)}</b>${g&&g.folio?` · ${esc(g.folio)}`:p.cargoId?'':' · Abono'}</div>
+    ${montoEditable?num('ep_monto','Monto',p.monto)
+      :`<p>Monto: <b>${money(p.monto)}</b><br><span class="muted small">Las facturas se liquidan completas. Si el monto de la factura estaba mal: deshaz este pago, corrige la factura y vuelve a pagarla.</span></p>`}
+    <label>Fecha de pago</label><input type="date" id="ep_fecha" value="${p.fecha}">
+    ${p.cargoId?num('ep_rec','Intereses / recargos pagados',p.recargos||0):''}
+    <label>Nota (opcional)</label><input id="ep_nota" value="${esc(p.nota||'')}">
+    ${botones(`guardarEdicionPago('${id}')`)}`);
+}
+function guardarEdicionPago(id){
+  const p=S.pagos.find(x=>x.id===id), c=cuentaById(p.cuentaId), g=p.cargoId?S.cargos.find(x=>x.id===p.cargoId):null;
+  const montoEditable=!(g&&c.comportamiento==='factura');
+  const nuevo=montoEditable?round2(numv('ep_monto')||0):p.monto;
+  if(!(nuevo>0)) return alerta('Captura un monto válido.');
+  const fecha=val('ep_fecha')||p.fecha;
+  const b=db.batch();
+  b.update(col('pagos').doc(id),{monto:nuevo,fecha,recargos:p.cargoId?(numv('ep_rec')||0):0,nota:val('ep_nota').trim()});
+  if(g&&nuevo!==p.monto){
+    const base=Math.min(g.montoOriginal,round2(g.saldo+p.monto)); // saldo antes de este pago
+    if(nuevo>base&&!g.esMensualidad) return alerta(`El pago no puede ser mayor al saldo que tenía el cargo (${money(base)}).`);
+    const saldo=Math.max(0,round2(base-nuevo));
+    b.update(col('cargos').doc(g.id),{saldo,estado:saldo===0?'pagado':saldo<g.montoOriginal?'parcial':'pendiente',pagadoEn:saldo===0?fecha:null});
+  }else if(g&&g.estado==='pagado'&&fecha!==p.fecha){
+    b.update(col('cargos').doc(g.id),{pagadoEn:fecha});
+  }
+  commit(b); closeSheet();
 }
 
 /* ---------- AJUSTES: TIPOS Y AVISOS ---------- */
