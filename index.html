@@ -10,8 +10,9 @@
   --red:#d64545;--orange:#e07b14;--yellow:#c99a10;--green:#2e9e5b;--gray:#9aa0a6}
 @media (prefers-color-scheme:dark){:root{--bg:#111316;--card:#1b1e23;--text:#e8eaed;--muted:#9aa0a6;--line:#2b2f35;--accent:#5b9bff;--accent-soft:#1d2a3d}}
 *{box-sizing:border-box}
+:root{--kb:0px}
 body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);
-  font-variant-numeric:tabular-nums;padding-bottom:84px;-webkit-tap-highlight-color:transparent}
+  font-variant-numeric:tabular-nums;padding-bottom:calc(84px + var(--kb));-webkit-tap-highlight-color:transparent}
 header{padding:calc(16px + env(safe-area-inset-top)) 16px 8px;max-width:720px;margin:0 auto;display:flex;justify-content:space-between;align-items:baseline}
 h1{font-size:20px;margin:0}h2{font-size:18px;margin:0 0 8px}h3{font-size:15px;margin:18px 0 8px}
 main{padding:0 16px;max-width:720px;margin:0 auto}
@@ -53,8 +54,8 @@ nav.tabs button{flex:1;padding:14px 0;min-width:0;background:none;border:0;color
 nav.tabs button.on{color:var(--accent);font-weight:700}
 .fab{position:fixed;right:18px;bottom:78px;width:56px;height:56px;border-radius:50%;background:var(--accent);color:#fff;
   font-size:30px;line-height:56px;border:0;box-shadow:0 4px 14px rgba(0,0,0,.25);z-index:6;cursor:pointer}
-.sheet-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center;z-index:10}
-.sheet{background:var(--card);width:100%;max-width:720px;max-height:92vh;overflow:auto;border-radius:16px 16px 0 0;padding:18px 16px 28px}
+.sheet-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center;z-index:10;padding-bottom:var(--kb)}
+.sheet{background:var(--card);width:100%;max-width:720px;max-height:calc(92vh - var(--kb));overflow:auto;border-radius:16px 16px 0 0;padding:18px 16px calc(28px + env(safe-area-inset-bottom))}
 .sheet-h{display:flex;justify-content:space-between;align-items:center}
 .x{background:none;border:0;color:var(--muted);font-size:20px;cursor:pointer}
 label{display:block;font-size:13px;color:var(--muted);margin:12px 0 4px}
@@ -250,6 +251,7 @@ function render(forzar){
   document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.toggle('on',b.dataset.tab===tab));
   $('fab').style.display=(tab==='inicio'||tab==='cuentas')?'block':'none';
   m.innerHTML = tab==='inicio'?vInicio() : tab==='cuentas'?vCuentas() : tab==='apartado'?vApartado() : tab==='deudas'?vDeudas() : vAjustes();
+  refrescarHoja();
 }
 document.addEventListener('focusout',()=>setTimeout(()=>{if(renderPendiente)render()},50));
 
@@ -374,8 +376,10 @@ function vAjustes(){
 }
 
 /* ============ HOJAS (MODALES) ============ */
-function openSheet(h){$('sheet').innerHTML=h;$('sheetBg').style.display='flex';$('sheet').scrollTop=0}
-function closeSheet(){$('sheetBg').style.display='none';$('sheet').innerHTML=''}
+let hojaViva=null; // vistas de solo lectura que se refrescan solas al cambiar los datos
+function openSheet(h){hojaViva=null;$('sheet').innerHTML=h;$('sheetBg').style.display='flex';$('sheet').scrollTop=0}
+function closeSheet(){hojaViva=null;$('sheetBg').style.display='none';$('sheet').innerHTML=''}
+function refrescarHoja(){ if(!hojaViva||$('sheetBg').style.display!=='flex') return; const st=$('sheet').scrollTop, f=hojaViva; f(); hojaViva=f; $('sheet').scrollTop=st; }
 const botones = accion => `<div class="row"><button class="btn sec" onclick="closeSheet()">Cancelar</button><button class="btn" onclick="${accion}">Guardar</button></div>`;
 
 /* ---------- DETALLE DE CUENTA ---------- */
@@ -683,6 +687,7 @@ function guardarAvisos(){
    Aquí el dueño ve dónde está cada peso: en sobres, en su poder o comprometido en banco. */
 const LINEAS = [['kontempo','Kontempo (Cemex)'],['cemento','Cemento']];
 const nombreLinea = k => (LINEAS.find(l=>l[0]===k)||[k,k])[1];
+const DIAS_MIN_RITMO = 5;
 const AP = {reg:[], mov:[], err:null, listo:false};
 function escucharApartados(){
   const fail = e => { AP.err=e.code||e.message; render(); };
@@ -701,7 +706,10 @@ function apCalc(){
   const enPoder=round2(sumar(ini.filter(m=>m.ubicacion==='poder'),m=>m.monto)+sumar(rec,m=>m.recibido)-sumar(dep,m=>m.monto)-pagE);
   const enBanco=round2(sumar(ini.filter(m=>m.ubicacion==='banco'),m=>m.monto)+sumar(R,r=>r.bancoTotal)+sumar(dep,m=>m.monto)-pagB);
   const diferencias=round2(sumar(rec,m=>m.recibido)-sumar(rec,m=>m.esperado));
-  const totalSuc=sumar(Object.values(enSuc),x=>x.monto), desde7=addDays(hoy(),-6);
+  const totalSuc=sumar(Object.values(enSuc),x=>x.monto);
+  // Ritmo: promedio de los días que sí tienen datos (máximo los últimos 7)
+  const primera=R.map(r=>r.fecha).filter(Boolean).sort()[0];
+  const diasDatos=primera?Math.min(7,Math.max(1,1-diasHasta(primera))):0, desde=addDays(hoy(),-(Math.max(1,diasDatos)-1));
   const lineas=LINEAS.map(([k,n])=>{
     const apartado=round2(sumar(R,r=>r.costo&&r.costo[k])+sumar(ini.filter(m=>m.linea===k),m=>m.monto)-sumar(P.filter(p=>p.apartadoLinea===k),p=>p.monto));
     const ctas=S.cuentas.filter(c=>c.lineaApartado===k).map(c=>c.id);
@@ -709,35 +717,38 @@ function apCalc(){
     const deuda=sumar(cargos,c=>c.saldo), prox=cargos[0]?cargos[0].fechaVencimiento:null;
     const montoProx=prox?sumar(cargos.filter(c=>c.fechaVencimiento===prox),c=>c.saldo):0;
     const faltante=Math.max(0,round2(montoProx-apartado)), dias=prox?diasHasta(prox):null;
-    const ritmo=round2(sumar(R.filter(r=>r.fecha>=desde7&&r.fecha<=hoy()),r=>r.costo&&r.costo[k])/7);
+    const ritmo=diasDatos?round2(sumar(R.filter(r=>r.fecha>=desde&&r.fecha<=hoy()),r=>r.costo&&r.costo[k])/diasDatos):0;
     const necesario=prox&&faltante>0?round2(faltante/Math.max(1,dias)):0;
-    return {k,n,apartado,deuda,nCargos:cargos.length,prox,montoProx,faltante,dias,ritmo,necesario,ctas:ctas.length};
+    return {k,n,apartado,deuda,nCargos:cargos.length,prox,montoProx,faltante,dias,ritmo,necesario,ctas:ctas.length,diasDatos};
   });
-  return {sucs,enSuc,totalSuc,enPoder,enBanco,diferencias,total:round2(totalSuc+enPoder+enBanco),lineas};
+  return {sucs,enSuc,totalSuc,enPoder,enBanco,diferencias,total:round2(totalSuc+enPoder+enBanco),lineas,diasDatos};
 }
 function estadoLinea(L){
-  if(!L.prox) return ['Sin facturas pendientes','ok'];
+  if(!L.prox) return ['Sin deuda pendiente','ok'];
   if(L.faltante<=0) return ['✅ Próximo pago cubierto','ok'];
   if(L.dias<0) return [`⚠️ Factura vencida: faltan ${money(L.faltante)}`,'mal'];
-  if(L.ritmo>=L.necesario) return ['✅ Vas bien al ritmo actual','ok'];
+  if(L.diasDatos<DIAS_MIN_RITMO) return [`⏳ Reuniendo datos (día ${L.diasDatos||0} de ${DIAS_MIN_RITMO})`,'neutro'];
+  if(L.ritmo>=L.necesario) return ['✅ Vas bien','ok'];
   return ['⚠️ Al ritmo actual no alcanzas','mal'];
 }
 const kv = (k,v,cls='') => `<div style="display:flex;justify-content:space-between;gap:10px;padding:5px 0;font-size:14px"><span class="muted">${k}</span><b class="${cls}">${v}</b></div>`;
+const colorEstado = est => est==='mal'?'red-t':est==='neutro'?'orange-t':'';
 function cardLinea(L){
-  if(!L.ctas) return `<div class="card"><b>${L.n}</b>${kv('Apartado acumulado',money(L.apartado))}
-    <p class="muted small" style="margin:6px 0 0">Ningún proveedor está ligado a esta línea. Ve a Cuentas → el proveedor → Editar → "Línea de apartado".</p></div>`;
-  const [txt,est]=estadoLinea(L), pct=L.deuda?Math.min(100,L.apartado/L.deuda*100):100;
-  return `<div class="card">
-    <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><b style="font-size:16px">${L.n}</b><span class="small ${est==='mal'?'red-t':''}" style="${est==='ok'?'color:var(--green)':''};font-weight:700;text-align:right">${txt}</span></div>
-    ${kv(`Deuda pendiente (${L.nCargos} factura${L.nCargos===1?'':'s'})`,money(L.deuda))}
-    ${kv('Apartado acumulado',money(L.apartado))}
-    <div class="progress"><i style="width:${pct}%"></i></div>
-    <div class="muted small">El apartado cubre el ${Math.round(pct)}% de la deuda</div>
-    ${L.prox?kv(`Próximo pago · ${fLarga(L.prox)} (${relativo(L.dias).toLowerCase()})`,money(L.montoProx))
-      +kv('Faltante para ese pago',money(L.faltante),L.faltante>0?'red-t':'')
-      +(L.faltante>0?kv('Necesitas apartar por día',money(L.necesario)):''):''}
-    ${kv('Ritmo real (promedio 7 días)',money(L.ritmo))}
-  </div>`;
+  const [txt,est]=estadoLinea(L);
+  const cab=`<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><b style="font-size:16px">${L.n}</b>
+    <span class="small ${colorEstado(est)}" style="${est==='ok'?'color:var(--green);':''}font-weight:700;text-align:right">${txt}</span></div>`;
+  let cuerpo;
+  if(!L.ctas) cuerpo=`<div class="muted small" style="margin-top:4px">Apartado ${money(L.apartado)} · Ningún proveedor ligado: ve a Cuentas → el proveedor → Editar → "Línea de apartado".</div>`;
+  else if(!L.prox) cuerpo=`<div class="muted small" style="margin-top:4px">Apartado ${money(L.apartado)}</div>`;
+  else { const pct=L.deuda?Math.min(100,Math.max(0,L.apartado/L.deuda*100)):100;
+    cuerpo=`<div class="small" style="margin-top:6px">Debes <b>${money0(L.deuda)}</b> · Apartado <b>${money0(L.apartado)}</b> · Falta <b class="${L.faltante>0?'red-t':''}">${money0(L.faltante)}</b></div>
+      <div class="progress"><i style="width:${pct}%"></i></div>
+      <div class="muted small">Vence ${fCorta(L.prox)} (${relativo(L.dias).toLowerCase()})${L.faltante>0?` · necesitas ${money0(L.necesario)}/día`:''}${L.diasDatos>=DIAS_MIN_RITMO?` · llevas ${money0(L.ritmo)}/día`:''}</div>`; }
+  return `<div class="card" style="cursor:pointer" onclick="verLinea('${L.k}')">${cab}${cuerpo}<div class="muted small" style="text-align:right;margin-top:4px">Ver detalle ›</div></div>`;
+}
+function filaDinero(titulo,sub,monto,boton,onclick,cls=''){
+  return `<div class="item" ${onclick?`onclick="${onclick}" style="cursor:pointer"`:''}><div class="grow"><div class="t ${cls}">${titulo}</div><div class="s muted">${sub}</div></div>
+    <div class="r"><div class="amt ${cls}">${money(monto)}</div>${boton||''}</div></div>`;
 }
 function vApartado(){
   if(AP.err) return `<div class="card"><h3 style="margin-top:0">Falta dar acceso</h3>
@@ -748,52 +759,106 @@ function vApartado(){
     <p class="muted small">Si ya lo hiciste, revisa que publicaste las reglas nuevas. Detalle: ${esc(AP.err)}</p></div>`;
   if(!AP.listo) return `<div class="empty">Cargando apartados…</div>`;
   const A=apCalc(), cf=S.config.ultimoSaldoBanco;
-  const filaSuc=A.sucs.map(s=>{ const x=A.enSuc[s]; return `<div class="item"><div class="grow"><div class="t">En sobre · ${esc(s)}</div>
-      <div class="s muted">${x.n?`${x.n} apartado${x.n>1?'s':''} sin recoger · desde ${fCorta(x.desde)}${diasHasta(x.desde)<=-5?' <span class="orange-t">· ya conviene recoger</span>':''}`:'Nada pendiente de recoger'}</div></div>
-      <div class="r"><div class="amt">${money(x.monto)}</div>${x.n?`<button class="mini" onclick="formRecoger('${esc(s)}')">Recoger</button>`:''}</div></div>`; }).join('');
+  const sobres=A.sucs.map(s=>{ const x=A.enSuc[s];
+    return filaDinero(`Sobre · ${esc(s)}`, x.n?`${x.n} día${x.n>1?'s':''} sin recoger · desde ${fCorta(x.desde)}${diasHasta(x.desde)<=-5?' <span class="orange-t">· ya conviene recoger</span>':''}`:'Nada por recoger',
+      x.monto, x.n?`<button class="mini" onclick="event.stopPropagation();formRecoger('${esc(s)}')">Recoger</button>`:''); }).join('');
+  const banco = A.enBanco>=0
+    ? filaDinero('En banco (no tocar)','Comprometido en tu cuenta Pyme',A.enBanco,`<button class="mini sec" onclick="event.stopPropagation();formVerificarBanco()">Verificar</button>`)
+    : filaDinero('Adelantado por la operación','Pagaste desde banco más de lo comprometido: deposita esa cantidad del efectivo en tu poder',-A.enBanco,'','','orange-t');
   let verif='';
   if(cf&&cf.fecha&&A.enBanco>0){ const ok=cf.monto>=A.enBanco;
-    verif=`<p class="small ${ok?'':'red-t'}" style="margin:8px 0 0">Última verificación (${fLarga(cf.fecha)}): saldo Pyme ${money(cf.monto)} · ${ok?'✅ cubría lo comprometido':`⚠️ faltaban ${money(A.enBanco-cf.monto)}`}</p>`; }
-  const movs=[
-    ...AP.mov.map(m=>({fecha:m.fecha, orden:m.creado&&m.creado.seconds||9e9, html:itemMov(m)})),
-    ...S.pagos.filter(p=>p.apartadoLinea).map(p=>({fecha:p.fecha, orden:p.creado&&p.creado.seconds||9e9, html:itemPagoAp(p)}))
-  ].sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')||b.orden-a.orden).slice(0,25);
+    verif=`<p class="small ${ok?'':'red-t'}" style="margin:8px 0 0">Verificado el ${fCorta(cf.fecha)}: saldo Pyme ${money(cf.monto)} · ${ok?'✅ cubría lo comprometido':`⚠️ faltaban ${money(A.enBanco-cf.monto)}`}</p>`; }
   return `
-    <div class="card"><h3 style="margin-top:0">¿Dónde está el dinero?</h3>
-      ${filaSuc||'<p class="muted">Aún no hay apartados capturados por los encargados.</p>'}
-      <div class="item"><div class="grow"><div class="t">En mi poder (efectivo)</div><div class="s muted">Recogido y sin depositar</div></div>
-        <div class="r"><div class="amt">${money(A.enPoder)}</div>${A.enPoder>0?`<button class="mini sec" onclick="formDeposito()">Deposité</button>`:''}</div></div>
-      ${A.enBanco>=0?`<div class="item"><div class="grow"><div class="t">Comprometido en banco</div><div class="s muted">En tu cuenta Pyme · no usar para otra cosa</div></div>
-        <div class="r"><div class="amt">${money(A.enBanco)}</div><button class="mini sec" onclick="formVerificarBanco()">Verificar</button></div></div>`
-      :`<div class="item"><div class="grow"><div class="t orange-t">Adelantado por la operación</div><div class="s muted">Pagaste desde banco más de lo comprometido. Deposita esa cantidad del efectivo en tu poder para reponerlo.</div></div>
-        <div class="r"><div class="amt orange-t">${money(-A.enBanco)}</div></div></div>`}
-      ${Math.abs(A.diferencias)>=0.01?`<div class="item"><div class="grow"><div class="t red-t">Diferencias en sobres</div><div class="s muted">Contado al recoger vs lo capturado</div></div><div class="r amt red-t">${money(A.diferencias)}</div></div>`:''}
-      <div class="item"><div class="grow"><div class="t">Total apartado</div></div><div class="r amt" style="font-size:18px">${money(A.total)}</div></div>
+    <div class="card"><div style="display:flex;justify-content:space-between;align-items:baseline"><h3 style="margin:0">💵 ¿Dónde está el dinero?</h3><b style="font-size:18px">${money0(A.total)}</b></div>
+      ${sobres||'<p class="muted small">Aún no hay apartados capturados por los encargados.</p>'}
+      ${filaDinero('En mi poder','Efectivo recogido y sin depositar',A.enPoder,A.enPoder>0?`<button class="mini sec" onclick="event.stopPropagation();formDeposito()">Deposité</button>`:'')}
+      ${banco}
+      ${Math.abs(A.diferencias)>=0.01?filaDinero('Diferencias en sobres','Contado al recoger vs lo capturado',A.diferencias,'','','red-t'):''}
       ${verif}
+      <button class="link" style="margin-top:6px" onclick="verMovimientos()">Ver movimientos (recolecciones, depósitos, dinero agregado) ›</button>
     </div>
-    ${A.lineas.map(cardLinea).join('')}
-    <button class="btn sec full" onclick="formInicial()">+ Registrar saldo inicial</button>
-    <div class="card" style="margin-top:12px"><h3 style="margin-top:0">Movimientos</h3>${movs.length?movs.map(x=>x.html).join(''):'<p class="muted">Sin movimientos todavía.</p>'}</div>`;
+    ${A.lineas.map(cardLinea).join('')}`;
+}
+
+/* ---- Detalle de una línea ---- */
+function verLinea(k){
+  const L=apCalc().lineas.find(x=>x.k===k); if(!L) return;
+  const [txt,est]=estadoLinea(L);
+  const hist=[
+    ...AP.reg.filter(r=>r.costo&&r.costo[k]>0).map(r=>({fecha:r.fecha,orden:0,html:`<div class="item"><div class="grow"><div class="t" style="font-weight:500">${fLarga(r.fecha)} · Apartado ${esc(r.sucursal)}</div>
+        <div class="s muted">${r.estado==='en_sucursal'?'En sobre':'Recogido'}${r.banco&&r.banco[k]>0?` · ${money(r.banco[k])} en banco`:''}</div></div><div class="r amt" style="color:var(--green)">+${money(r.costo[k])}</div></div>`})),
+    ...AP.mov.filter(m=>m.tipo==='inicial'&&m.linea===k).map(m=>({fecha:m.fecha,orden:1,html:`<div class="item" style="cursor:pointer" onclick="formAporte('${k}','${m.id}')"><div class="grow"><div class="t" style="font-weight:500">${fLarga(m.fecha)} · Dinero agregado</div>
+        <div class="s muted">${m.ubicacion==='banco'?'En banco':'En mi poder'}${m.nota?' · '+esc(m.nota):''} · <span style="color:var(--accent)">Editar</span></div></div><div class="r amt" style="color:var(--green)">+${money(m.monto)}</div></div>`})),
+    ...S.pagos.filter(p=>p.apartadoLinea===k).map(p=>{ const c=cuentaById(p.cuentaId), g=p.cargoId&&S.cargos.find(x=>x.id===p.cargoId);
+      return {fecha:p.fecha,orden:2,html:`<div class="item"><div class="grow"><div class="t" style="font-weight:500">${fLarga(p.fecha)} · Pago ${esc(c?c.nombre:'')}${g&&g.folio?' · '+esc(g.folio):''}</div>
+        <div class="s muted">Desde ${p.apartadoOrigen==='efectivo'?'efectivo en mi poder':'banco'}</div></div><div class="r amt red-t">−${money(p.monto)}</div></div>`}; })
+  ].sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')||b.orden-a.orden);
+  openSheet(`<div class="sheet-h"><h2>${L.n}</h2><button class="x" onclick="closeSheet()">✕</button></div>
+    <div class="small ${colorEstado(est)}" style="${est==='ok'?'color:var(--green);':''}font-weight:700">${txt}</div>
+    <div class="card soft" style="margin-top:10px">
+      ${kv('Apartado acumulado',money(L.apartado))}
+      ${L.ctas?kv(`Deuda pendiente (${L.nCargos} factura${L.nCargos===1?'':'s'})`,money(L.deuda)):''}
+      ${L.prox?kv(`Próximo pago · ${fLarga(L.prox)}`,money(L.montoProx))+kv('Falta para ese pago',money(L.faltante),L.faltante>0?'red-t':'')
+        +(L.faltante>0?kv(`Necesitas por día (${Math.max(1,L.dias)} días)`,money(L.necesario)):''):''}
+      ${kv(L.diasDatos>=DIAS_MIN_RITMO?'Llevas por día (últimos 7 días)':`Llevas por día (${L.diasDatos||0} día${L.diasDatos===1?'':'s'} de datos)`,money(L.ritmo))}
+    </div>
+    <button class="btn full" onclick="formAporte('${k}')">+ Agregar dinero al apartado</button>
+    <p class="muted small">Para el dinero que ya tenías separado o el que agregues tú (por ejemplo, de utilidades). Los apartados diarios los capturan los encargados en Gastos MP.</p>
+    <h3>Historial</h3>${hist.length?hist.slice(0,60).map(x=>x.html).join(''):'<p class="muted">Sin movimientos todavía.</p>'}`);
+  hojaViva=()=>verLinea(k);
+}
+
+/* ---- Dinero agregado (antes "saldo inicial") ---- */
+function formAporte(k,id){
+  const m=id?AP.mov.find(x=>x.id===id):null;
+  openSheet(`<h2>${m?'Editar':'Agregar'} dinero · ${nombreLinea(k)}</h2>
+    ${num('ap_monto','Monto',m?m.monto:'')}
+    <label>¿Dónde está?</label><select id="ap_ubic"><option value="poder">Efectivo en mi poder</option><option value="banco" ${m&&m.ubicacion==='banco'?'selected':''}>En la cuenta Pyme</option></select>
+    <label>Fecha</label><input type="date" id="ap_fecha" value="${m?m.fecha:hoy()}">
+    <label>Nota (opcional)</label><input id="ap_nota" value="${esc(m?m.nota||'':'')}" placeholder="Ej. lo que ya tenía separado">
+    ${botones(`guardarAporte('${k}','${id||''}')`)}
+    ${m?`<button class="btn sec full" style="margin-top:8px;color:var(--red)" onclick="eliminarMov('${id}')">Eliminar</button>`:''}`);
+}
+function guardarAporte(k,id){
+  const v=numv('ap_monto'); if(!(v>0)) return alerta('Captura un monto válido.');
+  const d={tipo:'inicial',linea:k,monto:round2(v),ubicacion:val('ap_ubic'),fecha:val('ap_fecha')||hoy(),nota:val('ap_nota').trim()};
+  (id?db.collection('apartados_mov').doc(id).update(d):db.collection('apartados_mov').add({...d,creado:ts()})).catch(e=>alerta('Error: '+e.message));
+  verLinea(k);
+}
+
+/* ---- Movimientos de dinero (recolecciones, depósitos, dinero agregado) ---- */
+function verMovimientos(){
+  const movs=[...AP.mov].sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')||((b.creado&&b.creado.seconds)||9e9)-((a.creado&&a.creado.seconds)||9e9));
+  openSheet(`<div class="sheet-h"><h2>Movimientos</h2><button class="x" onclick="closeSheet()">✕</button></div>
+    <p class="muted small" style="margin:0 0 6px">Toca uno para corregirlo o eliminarlo.</p>
+    ${movs.length?movs.slice(0,80).map(itemMov).join(''):'<p class="muted">Sin movimientos todavía.</p>'}`);
+  hojaViva=verMovimientos;
 }
 function itemMov(m){
-  let t='', s='', monto=0;
-  if(m.tipo==='recoleccion'){ t=`Recogí sobres · ${esc(m.sucursal)}`; monto=m.recibido;
+  let t='', s='', monto=0, accion='';
+  if(m.tipo==='recoleccion'){ t=`Recogí sobre · ${esc(m.sucursal)}`; monto=m.recibido; accion=`formEditarRecoleccion('${m.id}')`;
     const d=round2(m.recibido-m.esperado); s=`${(m.registroIds||[]).length} día${(m.registroIds||[]).length===1?'':'s'} · esperado ${money(m.esperado)}${Math.abs(d)>=0.01?` · <span class="red-t">${d>0?'sobran':'faltan'} ${money(Math.abs(d))}</span>`:' · cuadra'}`; }
-  if(m.tipo==='deposito'){ t='Depósito a banco'; monto=m.monto; s=esc(m.nota||''); }
-  if(m.tipo==='inicial'){ t=`Saldo inicial · ${nombreLinea(m.linea)}`; monto=m.monto; s=`${m.ubicacion==='banco'?'En banco':'En mi poder'}${m.nota?' · '+esc(m.nota):''}`; }
-  return `<div class="item"><div class="grow"><div class="t" style="font-weight:500">${fLarga(m.fecha)} · ${t}</div><div class="s muted">${s}</div></div>
-    <div class="r"><div class="amt">${money(monto)}</div><button class="link danger" onclick="deshacerMov('${m.id}')">Deshacer</button></div></div>`;
+  if(m.tipo==='deposito'){ t='Depósito a banco'; monto=m.monto; s=esc(m.nota||''); accion=`formDeposito('${m.id}')`; }
+  if(m.tipo==='inicial'){ t=`Dinero agregado · ${nombreLinea(m.linea)}`; monto=m.monto; s=`${m.ubicacion==='banco'?'En banco':'En mi poder'}${m.nota?' · '+esc(m.nota):''}`; accion=`formAporte('${m.linea}','${m.id}')`; }
+  return `<div class="item" style="cursor:pointer" onclick="${accion}"><div class="grow"><div class="t" style="font-weight:500">${fLarga(m.fecha)} · ${t}</div><div class="s muted">${s}</div></div>
+    <div class="r"><div class="amt">${money(monto)}</div><div class="small" style="color:var(--accent)">Editar</div></div></div>`;
 }
-function itemPagoAp(p){
-  const c=cuentaById(p.cuentaId), g=p.cargoId&&S.cargos.find(x=>x.id===p.cargoId);
-  return `<div class="item"><div class="grow"><div class="t" style="font-weight:500">${fLarga(p.fecha)} · Pago ${esc(c?c.nombre:'')}${g&&g.folio?' · '+esc(g.folio):''}</div>
-    <div class="s muted">${nombreLinea(p.apartadoLinea)} · desde ${p.apartadoOrigen==='efectivo'?'efectivo en mi poder':'banco'}</div></div>
-    <div class="r amt red-t">−${money(p.monto)}</div></div>`;
+function eliminarMov(id){
+  const m=AP.mov.find(x=>x.id===id); if(!m) return;
+  const txt=m.tipo==='recoleccion'?`¿Deshacer la recolección de ${m.sucursal} (${money(m.recibido)})? Los apartados vuelven a "en sobre".`
+    :`¿Eliminar este movimiento de ${money(m.monto)}?`;
+  if(!confirm(txt)) return;
+  const b=db.batch(); b.delete(db.collection('apartados_mov').doc(id));
+  if(m.tipo==='recoleccion') (m.registroIds||[]).filter(r=>AP.reg.some(x=>x.id===r))
+    .forEach(r=>b.update(db.collection('apartados_registros').doc(r),{estado:'en_sucursal',recoleccionId:null,recogidoEn:null}));
+  commit(b); closeSheet();
 }
+
+/* ---- Recoger sobres ---- */
 function formRecoger(s){
   const x=apCalc().enSuc[s]; if(!x||!x.n) return;
   const regs=[...x.regs].sort((a,b)=>a.fecha.localeCompare(b.fecha));
-  openSheet(`<h2>Recoger sobres · ${esc(s)}</h2>
+  openSheet(`<h2>Recoger sobre · ${esc(s)}</h2>
     <p class="muted small" style="margin:0 0 4px">Marca los días que vienen en el sobre.</p>
     ${regs.map(r=>`<label class="check" style="justify-content:space-between;margin-top:8px"><span><input type="checkbox" class="rc_chk" value="${esc(r.id)}" data-m="${r.efTotal}" checked onchange="recalcRecoger()">${fLarga(r.fecha)}</span><b>${money(r.efTotal)}</b></label>`).join('')}
     <div class="card soft" style="margin-top:12px">Debe traer: <b id="rc_esp"></b></div>
@@ -803,9 +868,9 @@ function formRecoger(s){
     ${botones(`guardarRecoger('${esc(s)}')`)}`);
   recalcRecoger();
 }
-function recalcRecoger(){
-  const esp=round2([...document.querySelectorAll('.rc_chk:checked')].reduce((a,i)=>a+Number(i.dataset.m||0),0));
-  $('rc_esp').textContent=money(esp);
+function recalcRecoger(esperadoFijo){
+  const esp=esperadoFijo!=null?esperadoFijo:round2([...document.querySelectorAll('.rc_chk:checked')].reduce((a,i)=>a+Number(i.dataset.m||0),0));
+  if($('rc_esp')) $('rc_esp').textContent=money(esp);
   const inp=$('rc_rec'); if(!inp.dataset.manual) inp.value=esp;
   const rec=numv('rc_rec'), d=rec==null?0:round2(rec-esp);
   $('rc_dif').innerHTML = rec==null?'' : Math.abs(d)<0.01 ? '<span style="color:var(--green)">✅ Cuadra</span>' : `<span class="red-t">${d>0?'Sobran':'Faltan'} ${money(Math.abs(d))}</span>`;
@@ -822,38 +887,51 @@ function guardarRecoger(s){
   chk.forEach(i=>b.update(db.collection('apartados_registros').doc(i.value),{estado:'recogido',recoleccionId:ref.id,recogidoEn:fecha}));
   commit(b); closeSheet();
 }
-function formDeposito(){
-  const A=apCalc();
-  openSheet(`<h2>Depósito a banco</h2>
-    <div class="card soft">Efectivo del apartado en tu poder: <b>${money(A.enPoder)}</b></div>
-    ${num('dp_monto','Monto depositado',A.enPoder)}
-    <label>Fecha</label><input type="date" id="dp_fecha" value="${hoy()}">
-    <label>Nota (opcional)</label><input id="dp_nota" placeholder="Ej. depósito en ventanilla">
-    <p class="muted small">El dinero pasa de "en mi poder" a "comprometido en banco".</p>
-    ${botones('guardarDeposito()')}`);
+function formEditarRecoleccion(id){
+  const m=AP.mov.find(x=>x.id===id); if(!m) return;
+  const regs=(m.registroIds||[]).map(r=>AP.reg.find(x=>x.id===r)).filter(Boolean).sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  openSheet(`<h2>Recolección · ${esc(m.sucursal)}</h2>
+    ${regs.map(r=>`<div style="display:flex;justify-content:space-between;padding:4px 0" class="small"><span>${fLarga(r.fecha)}</span><b>${money(r.efTotal)}</b></div>`).join('')}
+    <div class="card soft" style="margin-top:10px">Debía traer: <b>${money(m.esperado)}</b></div>
+    ${num('rc_rec','Lo que contaste',m.recibido, `data-manual="1" oninput="recalcRecoger(${m.esperado})"`)}
+    <p id="rc_dif" class="small" style="margin:6px 0 0"></p>
+    <label>Fecha</label><input type="date" id="rc_fecha" value="${m.fecha}">
+    ${botones(`guardarEdicionRecoleccion('${id}')`)}
+    <button class="btn sec full" style="margin-top:8px;color:var(--red)" onclick="eliminarMov('${id}')">Deshacer recolección</button>
+    <p class="muted small">Si un apartado del sobre estaba mal capturado, corrígelo en Gastos MP (Más → Apartado de créditos); lo esperado se ajusta solo.</p>`);
+  recalcRecoger(m.esperado);
 }
-function guardarDeposito(){
-  const m=numv('dp_monto'), A=apCalc();
-  if(!(m>0)) return alerta('Captura un monto válido.');
-  if(m>A.enPoder+0.01&&!confirm(`Depositas ${money(m)} pero en tu poder hay ${money(A.enPoder)} del apartado. ¿Continuar?`)) return;
-  db.collection('apartados_mov').add({tipo:'deposito',monto:round2(m),fecha:val('dp_fecha')||hoy(),nota:val('dp_nota').trim(),creado:ts()}).catch(e=>alerta('Error: '+e.message));
-  closeSheet();
+function guardarEdicionRecoleccion(id){
+  const v=numv('rc_rec'); if(v==null||v<0) return alerta('Escribe lo que contaste.');
+  const fecha=val('rc_fecha'), m=AP.mov.find(x=>x.id===id), b=db.batch();
+  b.update(db.collection('apartados_mov').doc(id),{recibido:round2(v),fecha:fecha||m.fecha});
+  (m.registroIds||[]).filter(r=>AP.reg.some(x=>x.id===r)).forEach(r=>b.update(db.collection('apartados_registros').doc(r),{recogidoEn:fecha||m.fecha}));
+  commit(b); verMovimientos();
 }
-function formInicial(){
-  openSheet(`<h2>Saldo inicial</h2>
-    <p class="muted small" style="margin:0">Para el dinero que ya tenías separado antes de empezar a usar los sobres. Regístralo una vez por línea.</p>
-    <label>Línea</label><select id="in_linea">${LINEAS.map(([k,n])=>`<option value="${k}">${n}</option>`).join('')}</select>
-    ${num('in_monto','Monto','')}
-    <label>¿Dónde está?</label><select id="in_ubic"><option value="poder">Efectivo en mi poder</option><option value="banco">En la cuenta Pyme</option></select>
-    <label>Fecha</label><input type="date" id="in_fecha" value="${hoy()}">
-    <label>Nota (opcional)</label><input id="in_nota">
-    ${botones('guardarInicial()')}`);
+
+/* ---- Depósito ---- */
+function formDeposito(id){
+  const m=id?AP.mov.find(x=>x.id===id):null, A=apCalc();
+  openSheet(`<h2>${m?'Editar depósito':'Depósito a banco'}</h2>
+    ${m?'':`<div class="card soft">Efectivo del apartado en tu poder: <b>${money(A.enPoder)}</b></div>`}
+    ${num('dp_monto','Monto depositado',m?m.monto:A.enPoder)}
+    <label>Fecha</label><input type="date" id="dp_fecha" value="${m?m.fecha:hoy()}">
+    <label>Nota (opcional)</label><input id="dp_nota" value="${esc(m?m.nota||'':'')}" placeholder="Ej. depósito en ventanilla">
+    <p class="muted small">El dinero pasa de "en mi poder" a "en banco".</p>
+    ${botones(`guardarDeposito('${id||''}')`)}
+    ${m?`<button class="btn sec full" style="margin-top:8px;color:var(--red)" onclick="eliminarMov('${id}')">Eliminar</button>`:''}`);
 }
-function guardarInicial(){
-  const m=numv('in_monto'); if(!(m>0)) return alerta('Captura un monto válido.');
-  db.collection('apartados_mov').add({tipo:'inicial',linea:val('in_linea'),monto:round2(m),ubicacion:val('in_ubic'),fecha:val('in_fecha')||hoy(),nota:val('in_nota').trim(),creado:ts()}).catch(e=>alerta('Error: '+e.message));
-  closeSheet();
+function guardarDeposito(id){
+  const v=numv('dp_monto'), A=apCalc(), m=id?AP.mov.find(x=>x.id===id):null;
+  if(!(v>0)) return alerta('Captura un monto válido.');
+  const disponible=round2(A.enPoder+(m?m.monto:0));
+  if(v>disponible+0.01&&!confirm(`Depositas ${money(v)} pero en tu poder hay ${money(disponible)} del apartado. ¿Continuar?`)) return;
+  const d={tipo:'deposito',monto:round2(v),fecha:val('dp_fecha')||hoy(),nota:val('dp_nota').trim()};
+  (id?db.collection('apartados_mov').doc(id).update(d):db.collection('apartados_mov').add({...d,creado:ts()})).catch(e=>alerta('Error: '+e.message));
+  if(id) verMovimientos(); else closeSheet();
 }
+
+/* ---- Verificar cuenta Pyme ---- */
 function formVerificarBanco(){
   const A=apCalc();
   openSheet(`<h2>Verificar cuenta Pyme</h2>
@@ -868,16 +946,6 @@ function guardarVerificarBanco(){
   col('config').doc('general').set({ultimoSaldoBanco:{monto:round2(v),fecha:hoy()}},{merge:true});
   closeSheet();
   setTimeout(()=>alerta(dif>=0?`✅ Cubre. Después de lo comprometido te quedan ${money(dif)} libres para la operación.`:`⚠️ Faltan ${money(-dif)}: el saldo no alcanza para lo comprometido. Ese dinero se fue a otros pagos; repónlo antes del próximo vencimiento.`),100);
-}
-function deshacerMov(id){
-  const m=AP.mov.find(x=>x.id===id); if(!m) return;
-  const txt=m.tipo==='recoleccion'?`¿Deshacer la recolección de ${m.sucursal} (${money(m.recibido)})? Los sobres vuelven a "en sucursal".`
-    :`¿Deshacer este movimiento de ${money(m.monto)}?`;
-  if(!confirm(txt)) return;
-  const b=db.batch(); b.delete(db.collection('apartados_mov').doc(id));
-  if(m.tipo==='recoleccion') (m.registroIds||[]).filter(r=>AP.reg.some(x=>x.id===r))
-    .forEach(r=>b.update(db.collection('apartados_registros').doc(r),{estado:'en_sucursal',recoleccionId:null,recogidoEn:null}));
-  commit(b);
 }
 function avisoApartadoInicio(){
   if(AP.err||!AP.listo) return '';
@@ -966,6 +1034,26 @@ if(NATIVO&&Capacitor.Plugins.App){
   });
 }
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden&&uid){render();programarAvisos()} });
+
+
+/* ---------- TECLADO: que no tape el campo ni los botones ---------- */
+function setTeclado(px){
+  document.documentElement.style.setProperty('--kb', Math.max(0,Math.round(px))+'px');
+  if(px>0) setTimeout(enfocarCampo,80);
+}
+function enfocarCampo(){ const a=document.activeElement; if(a&&/INPUT|TEXTAREA|SELECT/.test(a.tagName)) a.scrollIntoView({block:'center',behavior:'smooth'}); }
+document.addEventListener('focusin',e=>{ if(/INPUT|TEXTAREA/.test(e.target.tagName)) setTimeout(enfocarCampo,350); });
+if(NATIVO && Capacitor.Plugins.Keyboard){
+  // En Android la pantalla no siempre se encoge con el teclado: se agrega ese espacio abajo.
+  const K=Capacitor.Plugins.Keyboard; let altoBase=window.innerHeight, abierto=false;
+  window.addEventListener('resize',()=>{ if(!abierto) altoBase=window.innerHeight; });
+  K.addListener('keyboardWillShow',()=>{ abierto=true; });
+  K.addListener('keyboardDidShow',info=>{ abierto=true; const encogio=Math.max(0,altoBase-window.innerHeight); setTeclado((info.keyboardHeight||0)-encogio); });
+  K.addListener('keyboardWillHide',()=>{ abierto=false; setTeclado(0); });
+} else if(window.visualViewport){
+  const vv=window.visualViewport;
+  vv.addEventListener('resize',()=>{ const k=window.innerHeight-vv.height-vv.offsetTop; setTeclado(k>80?k:0); });
+}
 
 /* ---------- EXPORTAR ---------- */
 function exportar(){

@@ -1,6 +1,6 @@
 {
   "name": "agenda-creditos",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "private": true,
   "scripts": {
     "preparar": "node scripts/preparar-app.js"
@@ -10,7 +10,8 @@
     "@capacitor/app": "^7.0.0",
     "@capacitor/core": "^7.0.0",
     "@capacitor/local-notifications": "^7.0.0",
-    "firebase": "10.12.2"
+    "firebase": "10.12.2",
+    "@capacitor/keyboard": "^7.0.6"
   },
   "devDependencies": {
     "@capacitor/cli": "^7.0.0"
