@@ -767,17 +767,22 @@ function apCalc(){
     const cargos=S.cargos.filter(c=>c.estado!=='pagado'&&ctas.includes(c.cuentaId)).sort(byVenc);
     const deuda=sumar(cargos,c=>c.saldo), prox=cargos[0]?cargos[0].fechaVencimiento:null;
     const montoProx=prox?sumar(cargos.filter(c=>c.fechaVencimiento===prox),c=>c.saldo):0;
-    const faltante=Math.max(0,round2(montoProx-apartado)), dias=prox?diasHasta(prox):null;
+    // Cobertura acumulada: las facturas se pagan en orden de vencimiento; la "meta" es la primera fecha que el apartado ya no cubre
+    let acum=0, meta=null;
+    for(const g of cargos){ acum=round2(acum+(g.saldo||0)); if(acum>apartado+0.005){ meta=g.fechaVencimiento; break; } }
+    const montoMeta=meta?sumar(cargos.filter(c=>c.fechaVencimiento<=meta),c=>c.saldo):0;
+    const faltante=meta?Math.max(0,round2(montoMeta-apartado)):0, dias=meta?diasHasta(meta):prox?diasHasta(prox):null;
+    const proxCubierto=prox?apartado>=montoProx-0.005:true;
     const ritmo=diasDatos?round2(sumar(R.filter(r=>r.fecha>=desde&&r.fecha<=hoy()),r=>r.costo&&r.costo[k])/diasDatos):0;
-    const necesario=prox&&faltante>0?round2(faltante/Math.max(1,dias)):0;
-    return {k,n,apartado,deuda,nCargos:cargos.length,prox,montoProx,faltante,dias,ritmo,necesario,ctas:ctas.length,diasDatos,usado,repuesto,porReponer};
+    const necesario=meta&&faltante>0?round2(faltante/Math.max(1,dias)):0;
+    return {k,n,apartado,deuda,nCargos:cargos.length,prox,montoProx,proxCubierto,meta,montoMeta,faltante,dias,ritmo,necesario,ctas:ctas.length,diasDatos,usado,repuesto,porReponer};
   });
   const porReponer=sumar(lineas,L=>L.porReponer);
   return {sucs,enSuc,totalSuc,enPoder,enBanco,diferencias,total:round2(totalSuc+enPoder+enBanco),lineas,diasDatos,porReponer};
 }
 function estadoLinea(L){
   if(!L.prox) return ['Sin deuda pendiente','ok'];
-  if(L.faltante<=0) return ['✅ Próximo pago cubierto','ok'];
+  if(L.faltante<=0) return [L.nCargos>1?'✅ Toda la deuda cubierta':'✅ Próximo pago cubierto','ok'];
   if(L.dias<0) return [`⚠️ Factura vencida: faltan ${money(L.faltante)}`,'mal'];
   if(L.diasDatos<DIAS_MIN_RITMO) return [`⏳ Reuniendo datos (día ${L.diasDatos||0} de ${DIAS_MIN_RITMO})`,'neutro'];
   if(L.ritmo>=L.necesario) return ['✅ Vas bien','ok'];
@@ -795,7 +800,8 @@ function cardLinea(L){
   else { const pct=L.deuda?Math.min(100,Math.max(0,L.apartado/L.deuda*100)):100;
     cuerpo=`<div class="small" style="margin-top:6px">Debes <b>${money0(L.deuda)}</b> · Apartado <b>${money0(L.apartado)}</b> · Falta <b class="${L.faltante>0?'red-t':''}">${money0(L.faltante)}</b></div>
       <div class="progress"><i style="width:${pct}%"></i></div>
-      <div class="muted small">Vence ${fCorta(L.prox)} (${relativo(L.dias).toLowerCase()})${L.faltante>0?` · necesitas ${money0(L.necesario)}/día`:''}${L.diasDatos>=DIAS_MIN_RITMO?` · llevas ${money0(L.ritmo)}/día`:''}</div>`; }
+      <div class="muted small">${L.faltante>0?`${L.proxCubierto&&L.meta!==L.prox?`✅ Próximo pago (${fCorta(L.prox)}) cubierto · `:''}Faltan ${money0(L.faltante)} para pagar lo que vence hasta el ${fCorta(L.meta)} (${relativo(L.dias).toLowerCase()}) · necesitas ${money0(L.necesario)}/día`
+        :`Próximo pago ${fCorta(L.prox)} (${relativo(diasHasta(L.prox)).toLowerCase()})`}${L.diasDatos>=DIAS_MIN_RITMO?` · llevas ${money0(L.ritmo)}/día`:''}</div>`; }
   if(L.porReponer>0) cuerpo+=`<div class="small orange-t" style="margin-top:4px;font-weight:600">La operación usó ${money0(L.porReponer)} de este crédito · por reponer</div>`;
   return `<div class="card" style="cursor:pointer" onclick="verLinea('${L.k}')">${cab}${cuerpo}<div class="muted small" style="text-align:right;margin-top:4px">Ver detalle ›</div></div>`;
 }
@@ -820,7 +826,7 @@ function vApartado(){
     : filaDinero('Adelantado por la operación','Pagaste desde banco más de lo comprometido: deposita esa cantidad del efectivo en tu poder',-A.enBanco,'','','orange-t');
   let verif='';
   if(cf&&cf.fecha){ const comp=cf.comprometido!=null?cf.comprometido:A.enBanco, ok=cf.monto>=comp;
-    verif=`<p class="small ${ok||cf.ajuste?'':'red-t'}" style="margin:8px 0 0">Verificado el ${fCorta(cf.fecha)}: saldo Pyme ${money(cf.monto)} · ${ok?`✅ cubría lo comprometido · libres ${money(cf.monto-comp)}`:cf.ajuste?`ajustado: la operación había usado ${money(cf.ajuste)}`:`⚠️ faltaban ${money(comp-cf.monto)}`}</p>`; }
+    verif=`<p class="small ${ok||cf.ajuste?'':'red-t'}" style="margin:8px 0 0">Verificado el ${fCorta(cf.fecha)}: saldo Pyme ${money(cf.monto)} · ${cf.ajuste?`se ajustó: la operación había usado ${money(cf.ajuste)}`:ok?`✅ cubría lo comprometido · libres ${money(cf.monto-comp)}`:`⚠️ faltaban ${money(comp-cf.monto)}`}</p>`; }
   return `
     <div class="card"><div style="display:flex;justify-content:space-between;align-items:baseline"><h3 style="margin:0">💵 ¿Dónde está el dinero?</h3><b style="font-size:18px">${money0(A.total)}</b></div>
       ${sobres||'<p class="muted small">Aún no hay apartados capturados por los encargados.</p>'}
@@ -856,8 +862,9 @@ function verLinea(k){
     <div class="card soft" style="margin-top:10px">
       ${kv('Apartado acumulado',money(L.apartado))}
       ${L.ctas?kv(`Deuda pendiente (${L.nCargos} factura${L.nCargos===1?'':'s'})`,money(L.deuda)):''}
-      ${L.prox?kv(`Próximo pago · ${fLarga(L.prox)}`,money(L.montoProx))+kv('Falta para ese pago',money(L.faltante),L.faltante>0?'red-t':'')
-        +(L.faltante>0?kv(`Necesitas por día (${Math.max(1,L.dias)} días)`,money(L.necesario)):''):''}
+      ${L.prox?kv(`Próximo pago · ${fLarga(L.prox)}`,money(L.montoProx)+(L.proxCubierto?' ✅':''))
+        +(L.faltante>0?kv(`Lo que vence hasta el ${fLarga(L.meta)}`,money(L.montoMeta))+kv('Falta apartar',money(L.faltante),'red-t')+kv(`Necesitas por día (${Math.max(1,L.dias)} días)`,money(L.necesario))
+          :kv('Falta apartar',money(0))):''}
       ${kv(L.diasDatos>=DIAS_MIN_RITMO?'Llevas por día (últimos 7 días)':`Llevas por día (${L.diasDatos||0} día${L.diasDatos===1?'':'s'} de datos)`,money(L.ritmo))}
       ${L.usado>0?kv('Usado por la operación',money(L.usado),'orange-t')+kv('Repuesto',money(L.repuesto))+kv('Por reponer',money(L.porReponer),L.porReponer>0?'red-t':''):''}
     </div>
@@ -1077,7 +1084,7 @@ function avisoApartadoInicio(){
   if(AP.err||!AP.listo) return '';
   const malas=apCalc().lineas.filter(L=>L.ctas&&estadoLinea(L)[1]==='mal');
   if(!malas.length) return '';
-  return `<div class="card" style="border-color:var(--red);cursor:pointer" onclick="irA('apartado')">${malas.map(L=>`<div class="small"><b class="red-t">${L.n}:</b> ${estadoLinea(L)[0].replace('⚠️ ','')} — faltan ${money(L.faltante)} para el ${fCorta(L.prox)}</div>`).join('')}<div class="muted small" style="margin-top:4px">Ver apartado ›</div></div>`;
+  return `<div class="card" style="border-color:var(--red);cursor:pointer" onclick="irA('apartado')">${malas.map(L=>`<div class="small"><b class="red-t">${L.n}:</b> ${estadoLinea(L)[0].replace('⚠️ ','')} — faltan ${money(L.faltante)} para el ${fCorta(L.meta)}</div>`).join('')}<div class="muted small" style="margin-top:4px">Ver apartado ›</div></div>`;
 }
 
 /* ---------- TARJETAS: capturar el estado de cuenta después del corte ---------- */
